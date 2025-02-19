@@ -30,7 +30,7 @@ export function FacilityUnit({
                     min-h-[160px] w-full overflow-hidden
                     ${
                         active
-                            ? "bg-green-900 text-green-100"
+                            ? "bg-green-950 text-green-100"
                             : "bg-red-950 text-red-200 border border-red-900"
                     }
                     backdrop-blur-sm shadow-lg transition-all duration-200
@@ -39,7 +39,7 @@ export function FacilityUnit({
                 {/* Power level fill */}
                 {active && capacityFactor !== undefined && (
                     <div
-                        className="absolute bottom-0 left-0 right-0 bg-green-950 transition-all duration-300"
+                        className="absolute bottom-0 left-0 right-0 bg-green-900 transition-all duration-300"
                         style={{ height: `${Math.min(100, capacityFactor)}%` }}
                     />
                 )}
