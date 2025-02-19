@@ -100,7 +100,7 @@ export default async function Home() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                    <h1 className="text-6xl font-light tracking-tight text-center text-neutral-100">
+                    <h1 className="text-7xl font-normal tracking-wide text-center text-neutral-100 font-bebas uppercase">
                         Coal Watch Australia
                     </h1>
                 </div>

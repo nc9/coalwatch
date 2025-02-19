@@ -13,7 +13,7 @@ export function RegionCard({ region, facilities }: RegionCardProps) {
     const stats = calculateRegionStats(facilities)
 
     return (
-        <div className="bg-neutral-900/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-neutral-800">
+        <div className="bg-neutral-800/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-neutral-700">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 sm:gap-8 mb-8">
                 <h2 className="text-3xl font-light tracking-tight text-neutral-100">
                     {regionNames[region] || region}
