@@ -1,49 +1,24 @@
 import { getFacilities } from "@/server/facilities"
-import type { FacilityRecord, Facility } from "@/server/types"
-import {
-    regionNames,
-    regionOrder,
-    formatLastSeen,
-    formatMW,
-} from "@/utils/format"
+import type { IFacilityRecord, Facility } from "@/server/types"
+import { regionOrder } from "@/utils/format"
 import Image from "next/image"
 import { Footer } from "@/components/Footer"
 import { RegionCard } from "@/components/RegionCard"
 
-function isUnitActive(lastSeen: Date): boolean {
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
-    return lastSeen > oneHourAgo
-}
-
-function calculateRegionStats(facilities: Facility[]) {
-    let totalCapacity = 0
-    let operationalCapacity = 0
-
-    facilities.forEach((facility) => {
-        facility.units.forEach((unit) => {
-            totalCapacity += unit.capacity
-            if (isUnitActive(unit.lastSeen)) {
-                operationalCapacity += unit.capacity
-            }
-        })
-    })
-
-    return {
-        totalCapacity: Math.round(totalCapacity),
-        operationalCapacity: Math.round(operationalCapacity),
-        percentageOperational: Math.round(
-            (operationalCapacity / totalCapacity) * 100,
-        ),
-    }
-}
-
 function groupFacilitiesByRegion(
-    records: FacilityRecord[],
+    records: IFacilityRecord[],
 ): Map<string, Facility[]> {
-    // First convert records to facilities with units
     const facilitiesMap = new Map<string, Facility>()
 
     records.forEach((record) => {
+        // Skip records with null values
+        if (
+            record.unit_capacity === null ||
+            record.unit_last_seen === null ||
+            record.unit_status === null
+        )
+            return
+
         if (!facilitiesMap.has(record.facility_code)) {
             facilitiesMap.set(record.facility_code, {
                 name: record.facility_name,

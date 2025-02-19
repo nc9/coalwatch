@@ -1,9 +1,8 @@
 import type { Metadata } from "next"
-import { Inter, Roboto_Mono, Bebas_Neue } from "next/font/google"
+import { Inter, Bebas_Neue } from "next/font/google"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
-const mono = Roboto_Mono({ subsets: ["latin"] })
 const bebas = Bebas_Neue({
     weight: "400",
     subsets: ["latin"],
