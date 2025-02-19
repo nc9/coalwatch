@@ -1,101 +1,126 @@
-import Image from "next/image";
+import { getFacilities } from "@/server/facilities"
+import type { FacilityRecord, Facility } from "@/server/types"
+import {
+    regionNames,
+    regionOrder,
+    formatLastSeen,
+    formatMW,
+} from "@/utils/format"
+import Image from "next/image"
+import { Footer } from "@/components/Footer"
+import { RegionCard } from "@/components/RegionCard"
 
-export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+function isUnitActive(lastSeen: Date): boolean {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+    return lastSeen > oneHourAgo
+}
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+function calculateRegionStats(facilities: Facility[]) {
+    let totalCapacity = 0
+    let operationalCapacity = 0
+
+    facilities.forEach((facility) => {
+        facility.units.forEach((unit) => {
+            totalCapacity += unit.capacity
+            if (isUnitActive(unit.lastSeen)) {
+                operationalCapacity += unit.capacity
+            }
+        })
+    })
+
+    return {
+        totalCapacity: Math.round(totalCapacity),
+        operationalCapacity: Math.round(operationalCapacity),
+        percentageOperational: Math.round(
+            (operationalCapacity / totalCapacity) * 100,
+        ),
+    }
+}
+
+function groupFacilitiesByRegion(
+    records: FacilityRecord[],
+): Map<string, Facility[]> {
+    // First convert records to facilities with units
+    const facilitiesMap = new Map<string, Facility>()
+
+    records.forEach((record) => {
+        if (!facilitiesMap.has(record.facility_code)) {
+            facilitiesMap.set(record.facility_code, {
+                name: record.facility_name,
+                code: record.facility_code,
+                region: record.facility_region,
+                units: [],
+            })
+        }
+
+        const facility = facilitiesMap.get(record.facility_code)
+        if (facility) {
+            facility.units.push({
+                code: record.unit_code,
+                capacity: record.unit_capacity,
+                lastSeen: new Date(record.unit_last_seen),
+                status: record.unit_status,
+            })
+        }
+    })
+
+    // Then group by region and sort by our custom order
+    const groupedFacilities = new Map<string, Facility[]>()
+    Array.from(facilitiesMap.values()).forEach((facility) => {
+        const region = facility.region
+        if (!groupedFacilities.has(region)) {
+            groupedFacilities.set(region, [])
+        }
+        groupedFacilities.get(region)?.push(facility)
+    })
+
+    return groupedFacilities
+}
+
+export default async function Home() {
+    const records = await getFacilities()
+    const facilitiesByRegion = groupFacilitiesByRegion(records.getRecords())
+
+    const sortedRegions = Array.from(facilitiesByRegion.entries()).sort(
+        (a, b) => {
+            return regionOrder.indexOf(a[0]) - regionOrder.indexOf(b[0])
+        },
+    )
+
+    return (
+        <div className="min-h-screen bg-black text-neutral-200">
+            {/* Hero section with image */}
+            <div className="relative h-[60vh] min-h-[500px] w-full">
+                <Image
+                    src="/splash.jpg"
+                    alt="Coal power station"
+                    fill
+                    priority
+                    className="object-cover object-center"
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <h1 className="text-6xl font-light tracking-tight text-center text-neutral-100">
+                        Coal Watch Australia
+                    </h1>
+                </div>
+            </div>
+
+            {/* Main content */}
+            <div className="relative">
+                <div className="max-w-[1400px] mx-auto px-6 sm:px-8 py-12">
+                    <div className="space-y-16">
+                        {sortedRegions.map(([region, facilities]) => (
+                            <RegionCard
+                                key={region}
+                                region={region}
+                                facilities={facilities}
+                            />
+                        ))}
+                    </div>
+                </div>
+            </div>
+            <Footer />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+    )
 }
