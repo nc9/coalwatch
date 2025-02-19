@@ -2,6 +2,7 @@ import { OpenElectricityClient } from "@openelectricity/client"
 import { toZonedTime } from "date-fns-tz"
 import { put } from "@vercel/blob"
 import type { Facility, FacilityData } from "@/server/types"
+import { debug, debugWarn, debugError } from "@/utils/debug"
 
 const client = new OpenElectricityClient()
 
@@ -59,7 +60,7 @@ async function getFacilityPowerData(stationCode: string, unitLastSeen: string) {
         )
 
         if (!datatable) {
-            console.error(`No datatable returned for ${stationCode}`)
+            debugError(`No datatable returned for ${stationCode}`)
             return new Map<string, { power: number; interval: Date }>()
         }
 
@@ -81,14 +82,11 @@ async function getFacilityPowerData(stationCode: string, unitLastSeen: string) {
                     date: row.interval,
                 })
             } else {
-                console.warn(
-                    `Invalid row data for ${stationCode}:`,
-                    JSON.stringify({
-                        unit_code: row.unit_code,
-                        power: row.power,
-                        interval: row.interval,
-                    }),
-                )
+                debugWarn(`Invalid row data for ${stationCode}:`, {
+                    unit_code: row.unit_code,
+                    power: row.power,
+                    interval: row.interval,
+                })
             }
         })
 
@@ -110,7 +108,7 @@ async function getFacilityPowerData(stationCode: string, unitLastSeen: string) {
 
         return powerByUnit
     } catch (error) {
-        console.error(`Error fetching power data for ${stationCode}:`, error)
+        debugError(`Error fetching power data for ${stationCode}:`, error)
         return new Map<string, { power: number; interval: Date }>()
     }
 }
@@ -121,7 +119,7 @@ async function getFacilityPowerData(stationCode: string, unitLastSeen: string) {
 export async function generateData(): Promise<FacilityData> {
     try {
         // Get all facilities
-        console.log("Fetching facility list...")
+        debug("Fetching facility list...")
         const facilityResponse = await client.getFacilities({
             network_id: ["NEM"],
             status_id: ["operating"],
@@ -129,7 +127,7 @@ export async function generateData(): Promise<FacilityData> {
         })
 
         const records = facilityResponse.table.getRecords()
-        console.log(`Found ${records.length} facility records`)
+        debug(`Found ${records.length} facility records`)
         const facilitiesMap = new Map<string, Facility>()
 
         // First pass: create facilities with units
@@ -140,10 +138,7 @@ export async function generateData(): Promise<FacilityData> {
                 record.unit_status === null ||
                 record.unit_code === null
             ) {
-                console.warn(
-                    `Skipping record with null values:`,
-                    JSON.stringify(record),
-                )
+                debugWarn(`Skipping record with null values:`, record)
                 return
             }
 
@@ -188,7 +183,7 @@ export async function generateData(): Promise<FacilityData> {
                         unit.lastSeen,
                         currentNetworkTime,
                     )
-                    console.log(
+                    debug(
                         `${facility.name} - ${unit.code}: Raw data_last_seen ${
                             unit.rawLastSeen
                         }, Converted ${unit.lastSeen} - ${
@@ -210,7 +205,7 @@ export async function generateData(): Promise<FacilityData> {
 
                     const data = powerData.get(unit.code)
                     if (!data) {
-                        console.log(
+                        debug(
                             `${facility.name} - ${unit.code}: No current power data`,
                         )
                         return {
@@ -223,14 +218,14 @@ export async function generateData(): Promise<FacilityData> {
 
                     // Warn about excessive power but still show the reading
                     if (data.power > unit.capacity) {
-                        console.warn(
+                        debugWarn(
                             `Power reading ${data.power}MW exceeds capacity ${unit.capacity}MW for unit ${unit.code} in ${facility.name}`,
                         )
                     }
 
                     const capacityFactor = (data.power / unit.capacity) * 100
 
-                    console.log(
+                    debug(
                         `${facility.name} - ${unit.code}: Latest interval ${latestInterval} (${data.power}MW)`,
                     )
 
@@ -258,10 +253,10 @@ export async function generateData(): Promise<FacilityData> {
             addRandomSuffix: false,
         })
 
-        console.log(`Data successfully written to ${url}`)
+        debug(`Data successfully written to ${url}`)
         return data
     } catch (error) {
-        console.error("Error generating data:", error)
+        debugError("Error generating data:", error)
         process.exit(1)
     }
 }
