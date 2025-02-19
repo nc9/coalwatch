@@ -7,11 +7,10 @@ export const regionNames: Record<string, string> = {
     SA1: "South Australia",
     TAS1: "Tasmania",
     VIC1: "Victoria",
-    WEM: "Western Australia",
 }
 
-// Order for regions (WEM last)
-export const regionOrder = ["NSW1", "QLD1", "VIC1", "SA1", "TAS1", "WEM"]
+// Order for regions
+export const regionOrder = ["NSW1", "QLD1", "VIC1", "SA1", "TAS1"]
 
 export function formatLastSeen(date: Date): string {
     return `Last seen ${formatDistanceToNow(date, { addSuffix: true })}`

@@ -1,5 +1,4 @@
-import { NetworkCode, OpenElectricityClient } from "@openelectricity/client"
-import { subMinutes, setSeconds, setMilliseconds } from "date-fns"
+import { OpenElectricityClient } from "@openelectricity/client"
 import { toZonedTime } from "date-fns-tz"
 import { put } from "@vercel/blob"
 import type { Facility, FacilityData } from "@/server/types"
@@ -9,41 +8,38 @@ const client = new OpenElectricityClient({
     baseUrl: process.env.NEXT_PUBLIC_OPENELECTRICITY_API_URL || "",
 })
 
-const TIMEZONE = "Australia/Sydney"
-
-/**
- * Gets the last complete 5-minute interval in AEST (UTC+10)
- */
-function getLastCompleteInterval(): Date {
-    const now = new Date()
-    const sydneyTime = toZonedTime(now, TIMEZONE)
-    const minutes = sydneyTime.getMinutes()
-    const roundedMinutes = Math.floor(minutes / 5) * 5
-    const result = setMilliseconds(setSeconds(sydneyTime, 0), 0)
-    result.setMinutes(roundedMinutes)
-    return subMinutes(result, 5)
-}
+// Network timezone
+const NETWORK_TIMEZONE = "Australia/Sydney"
 
 /**
  * Fetches power data for a facility
  */
-async function getFacilityPowerData(
-    networkId: NetworkCode,
-    stationCode: string,
-) {
-    const lastInterval = getLastCompleteInterval()
-    const firstInterval = new Date(lastInterval)
+async function getFacilityPowerData(stationCode: string, unitLastSeen: string) {
+    // Convert the last seen time to a Date (it's already in network time)
+    const lastSeenDate = new Date(unitLastSeen)
+    const firstInterval = new Date(lastSeenDate)
     firstInterval.setHours(firstInterval.getHours() - 1)
+
+    // Get current network time to check if unit is active
+    const now = new Date()
+    const currentNetworkTime = toZonedTime(now, NETWORK_TIMEZONE)
+    const oneHourAgo = new Date(currentNetworkTime)
+    oneHourAgo.setHours(oneHourAgo.getHours() - 1)
+
+    // If the last seen time is more than an hour ago in network time, unit is down
+    if (lastSeenDate < oneHourAgo) {
+        return new Map<string, number>()
+    }
 
     try {
         const { datatable } = await client.getFacilityData(
-            networkId,
+            "NEM",
             stationCode,
             ["power"],
             {
                 interval: "5m",
                 dateStart: firstInterval.toISOString(),
-                dateEnd: lastInterval.toISOString(),
+                dateEnd: lastSeenDate.toISOString(),
             },
         )
 
@@ -96,10 +92,7 @@ async function getFacilityPowerData(
 
         return powerByUnit
     } catch (error) {
-        console.error(
-            `Error fetching power data for ${stationCode} (${networkId}):`,
-            error,
-        )
+        console.error(`Error fetching power data for ${stationCode}:`, error)
         return new Map<string, number>()
     }
 }
@@ -112,6 +105,7 @@ export async function generateData(): Promise<FacilityData> {
         // Get all facilities
         console.log("Fetching facility list...")
         const facilityResponse = await client.getFacilities({
+            network_id: ["NEM"],
             status_id: ["operating"],
             fueltech_id: ["coal_black", "coal_brown"],
         })
@@ -160,31 +154,33 @@ export async function generateData(): Promise<FacilityData> {
         const facilities = Array.from(facilitiesMap.values())
 
         for (const facility of facilities) {
-            const networkId = facility.region === "WEM" ? "WEM" : "NEM"
-            const powerData = await getFacilityPowerData(
-                networkId as NetworkCode,
-                facility.code,
-            )
-
-            facility.units = facility.units.map((unit) => {
-                const power = powerData.get(unit.code)
-                if (power === undefined) {
-                    return unit
-                }
-                if (power > unit.capacity) {
-                    console.warn(
-                        `Power reading ${power}MW exceeds capacity ${unit.capacity}MW for unit ${unit.code} in ${facility.name}`,
+            facility.units = await Promise.all(
+                facility.units.map(async (unit) => {
+                    const powerData = await getFacilityPowerData(
+                        facility.code,
+                        unit.lastSeen,
                     )
-                    return unit
-                }
 
-                const capacityFactor = (power / unit.capacity) * 100
-                return {
-                    ...unit,
-                    currentPower: power,
-                    capacityFactor,
-                }
-            })
+                    const power = powerData.get(unit.code)
+                    if (power === undefined) {
+                        return unit
+                    }
+
+                    // Warn about excessive power but still show the reading
+                    if (power > unit.capacity) {
+                        console.warn(
+                            `Power reading ${power}MW exceeds capacity ${unit.capacity}MW for unit ${unit.code} in ${facility.name}`,
+                        )
+                    }
+
+                    const capacityFactor = (power / unit.capacity) * 100
+                    return {
+                        ...unit,
+                        currentPower: power,
+                        capacityFactor,
+                    }
+                }),
+            )
         }
 
         const data: FacilityData = {

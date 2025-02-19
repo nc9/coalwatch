@@ -10,8 +10,8 @@ interface FacilityCardProps {
     facility: Facility
 }
 
-function getFacilityUrl(code: string, network: string): string {
-    return `https://explore.openelectricity.org.au/facility/au/${network}/${code}/`
+function getFacilityUrl(code: string): string {
+    return `https://explore.openelectricity.org.au/facility/au/NEM/${code}/`
 }
 
 export function FacilityCard({ facility }: FacilityCardProps) {
@@ -39,8 +39,6 @@ export function FacilityCard({ facility }: FacilityCardProps) {
         [facility.units],
     )
 
-    const network = facility.region === "WEM" ? "WEM" : "NEM"
-
     if (!facility.code || !facility.name || !facility.region) {
         console.error("Invalid facility data:", facility)
         return (
@@ -55,7 +53,7 @@ export function FacilityCard({ facility }: FacilityCardProps) {
             <h3 className="text-2xl font-light mb-5 text-neutral-200 flex items-center gap-2 hover:text-neutral-100">
                 <Factory className="w-6 h-6 opacity-75" />
                 <a
-                    href={getFacilityUrl(facility.code, network)}
+                    href={getFacilityUrl(facility.code)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 hover:underline"
@@ -77,6 +75,7 @@ export function FacilityCard({ facility }: FacilityCardProps) {
                             active={isUnitActive(new Date(unit.lastSeen))}
                             currentPower={unit.currentPower}
                             capacityFactor={unit.capacityFactor}
+                            network="NEM"
                         />
                     ))}
                 </div>
