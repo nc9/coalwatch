@@ -47,12 +47,16 @@ async function getFacilityPowerData(
             },
         )
 
-        if (!datatable) return new Map<string, number>()
+        if (!datatable) {
+            console.error(`No datatable returned for ${stationCode}`)
+            return new Map<string, number>()
+        }
 
         // Group rows by unit to find most recent valid reading for each
         const unitRows = new Map<string, { power: number; date: Date }[]>()
+        const rows = datatable.getRows()
 
-        datatable.getRows().forEach((row) => {
+        rows.forEach((row) => {
             if (
                 typeof row.unit_code === "string" &&
                 typeof row.power === "number" &&
@@ -65,6 +69,15 @@ async function getFacilityPowerData(
                     power: row.power,
                     date: row.interval,
                 })
+            } else {
+                console.warn(
+                    `Invalid row data for ${stationCode}:`,
+                    JSON.stringify({
+                        unit_code: row.unit_code,
+                        power: row.power,
+                        interval: row.interval,
+                    }),
+                )
             }
         })
 
@@ -83,7 +96,10 @@ async function getFacilityPowerData(
 
         return powerByUnit
     } catch (error) {
-        console.error(`Error fetching power data for ${stationCode}:`, error)
+        console.error(
+            `Error fetching power data for ${stationCode} (${networkId}):`,
+            error,
+        )
         return new Map<string, number>()
     }
 }
@@ -94,12 +110,14 @@ async function getFacilityPowerData(
 export async function generateData(): Promise<FacilityData> {
     try {
         // Get all facilities
+        console.log("Fetching facility list...")
         const facilityResponse = await client.getFacilities({
             status_id: ["operating"],
             fueltech_id: ["coal_black", "coal_brown"],
         })
 
         const records = facilityResponse.table.getRecords()
+        console.log(`Found ${records.length} facility records`)
         const facilitiesMap = new Map<string, Facility>()
 
         // First pass: create facilities with units
@@ -109,8 +127,13 @@ export async function generateData(): Promise<FacilityData> {
                 record.unit_last_seen === null ||
                 record.unit_status === null ||
                 record.unit_code === null
-            )
+            ) {
+                console.warn(
+                    `Skipping record with null values:`,
+                    JSON.stringify(record),
+                )
                 return
+            }
 
             if (!facilitiesMap.has(record.facility_code)) {
                 facilitiesMap.set(record.facility_code, {
@@ -135,6 +158,7 @@ export async function generateData(): Promise<FacilityData> {
 
         // Second pass: fetch and add power data for each facility
         const facilities = Array.from(facilitiesMap.values())
+
         for (const facility of facilities) {
             const networkId = facility.region === "WEM" ? "WEM" : "NEM"
             const powerData = await getFacilityPowerData(
@@ -144,8 +168,15 @@ export async function generateData(): Promise<FacilityData> {
 
             facility.units = facility.units.map((unit) => {
                 const power = powerData.get(unit.code)
-                // Skip invalid or excessive power readings
-                if (power === undefined || power > unit.capacity) return unit
+                if (power === undefined) {
+                    return unit
+                }
+                if (power > unit.capacity) {
+                    console.warn(
+                        `Power reading ${power}MW exceeds capacity ${unit.capacity}MW for unit ${unit.code} in ${facility.name}`,
+                    )
+                    return unit
+                }
 
                 const capacityFactor = (power / unit.capacity) * 100
                 return {
@@ -169,7 +200,7 @@ export async function generateData(): Promise<FacilityData> {
             addRandomSuffix: false,
         })
 
-        console.log(`Data written to Vercel Blob: ${url}`)
+        console.log(`Data successfully written to ${url}`)
         return data
     } catch (error) {
         console.error("Error generating data:", error)
