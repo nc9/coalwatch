@@ -2,7 +2,7 @@
 
 Coal Watch is a website to track the current status of coal generation units in Australia.
 
-<img width="1264" alt="image" src="https://github.com/user-attachments/assets/15824f7a-19f4-493f-8339-6f3d7323a610" />
+[<img width="1264" alt="image" src="https://github.com/user-attachments/assets/15824f7a-19f4-493f-8339-6f3d7323a610" />](https://coalwatch.vercel.app)
 
 [coalwatch.vercel.app](https://coalwatch.vercel.app/)
 
