@@ -3,6 +3,7 @@ import Image from "next/image"
 import { Footer } from "@/components/Footer"
 import { RegionCard } from "@/components/RegionCard"
 import type { Facility, FacilityData } from "@/server/types"
+import { formatDistanceToNow } from "date-fns"
 
 // Revalidate every 5 minutes to match the data update frequency
 export const revalidate = 300
@@ -62,10 +63,10 @@ export default async function Home() {
             {/* Main content */}
             <div className="relative">
                 <div className="max-w-[1400px] mx-auto px-6 sm:px-8 py-12">
-                    <div className="text-sm text-neutral-400 mb-8">
-                        Last updated:{" "}
-                        {new Date(lastUpdated).toLocaleString("en-AU", {
-                            timeZone: "Australia/Sydney",
+                    <div className="text-sm text-neutral-400 text-center mb-12">
+                        Last updated{" "}
+                        {formatDistanceToNow(new Date(lastUpdated), {
+                            addSuffix: true,
                         })}
                     </div>
                     <div className="space-y-16">
