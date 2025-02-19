@@ -3,7 +3,7 @@ import { FacilityCard } from "./FacilityCard"
 import { regionNames } from "@/utils/format"
 import { calculateRegionStats } from "@/utils/helpers"
 import { formatMW } from "@/utils/format"
-import { Power, Zap, Battery, Factory } from "lucide-react"
+import { Power, Zap, Battery } from "lucide-react"
 
 interface RegionCardProps {
     region: string
