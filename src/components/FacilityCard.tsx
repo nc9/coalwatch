@@ -3,7 +3,6 @@
 import { useMemo } from "react"
 import type { Facility, Unit } from "@/server/types"
 import { FacilityUnit } from "./FacilityUnit"
-import { isUnitActive } from "@/utils/helpers"
 import { ExternalLink, Factory } from "lucide-react"
 
 interface FacilityCardProps {
