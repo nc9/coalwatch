@@ -71,11 +71,10 @@ export function FacilityCard({ facility }: FacilityCardProps) {
                             key={unit.code}
                             code={unit.code}
                             capacity={unit.capacity}
-                            lastSeen={new Date(unit.lastSeen)}
-                            active={isUnitActive(new Date(unit.lastSeen))}
+                            active={unit.active || false}
                             currentPower={unit.currentPower}
                             capacityFactor={unit.capacityFactor}
-                            network="NEM"
+                            latestInterval={unit.latestInterval}
                         />
                     ))}
                 </div>

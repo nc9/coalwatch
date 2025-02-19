@@ -3,33 +3,48 @@ import { toZonedTime } from "date-fns-tz"
 import { put } from "@vercel/blob"
 import type { Facility, FacilityData } from "@/server/types"
 
-const client = new OpenElectricityClient({
-    apiKey: process.env.NEXT_PUBLIC_OPENELECTRICITY_API_KEY,
-    baseUrl: process.env.NEXT_PUBLIC_OPENELECTRICITY_API_URL || "",
-})
+const client = new OpenElectricityClient()
 
-// Network timezone
-const NETWORK_TIMEZONE = "Australia/Sydney"
+// Network timezone (Brisbane has no daylight savings and is effectively +10)
+const NETWORK_TIMEZONE = "Australia/Brisbane"
+
+/**
+ * Converts a UTC date to network time (+10) string
+ * For dates from the API that are already in +10 but marked as UTC,
+ * just change the timezone marker.
+ */
+function toNetworkTime(
+    date: Date,
+    isAlreadyNetworkTime: boolean = false,
+): string {
+    if (isAlreadyNetworkTime) {
+        // For dates already in network time (like unit_last_seen), just change marker
+        return date.toISOString().replace("Z", "+10:00")
+    }
+    // For actual UTC dates (like interval), add 10 hours then mark as +10
+    const networkDate = new Date(date.getTime() + 10 * 60 * 60 * 1000)
+    return networkDate.toISOString().replace("Z", "+10:00")
+}
+
+/**
+ * Check if a unit is active based on its last seen time
+ * Note: lastSeen is marked as UTC but is actually +10
+ */
+function isUnitActive(lastSeen: string, currentNetworkTime: Date): boolean {
+    // Since lastSeen is already in network time, just parse it directly
+    const lastSeenDate = new Date(lastSeen.replace("+10:00", "Z"))
+    const oneHourAgo = new Date(currentNetworkTime.getTime() - 60 * 60 * 1000)
+    return lastSeenDate > oneHourAgo
+}
 
 /**
  * Fetches power data for a facility
  */
 async function getFacilityPowerData(stationCode: string, unitLastSeen: string) {
-    // Convert the last seen time to a Date (it's already in network time)
+    // Use last seen time just to get a window of data to query
     const lastSeenDate = new Date(unitLastSeen)
     const firstInterval = new Date(lastSeenDate)
     firstInterval.setHours(firstInterval.getHours() - 1)
-
-    // Get current network time to check if unit is active
-    const now = new Date()
-    const currentNetworkTime = toZonedTime(now, NETWORK_TIMEZONE)
-    const oneHourAgo = new Date(currentNetworkTime)
-    oneHourAgo.setHours(oneHourAgo.getHours() - 1)
-
-    // If the last seen time is more than an hour ago in network time, unit is down
-    if (lastSeenDate < oneHourAgo) {
-        return new Map<string, number>()
-    }
 
     try {
         const { datatable } = await client.getFacilityData(
@@ -45,7 +60,7 @@ async function getFacilityPowerData(stationCode: string, unitLastSeen: string) {
 
         if (!datatable) {
             console.error(`No datatable returned for ${stationCode}`)
-            return new Map<string, number>()
+            return new Map<string, { power: number; interval: Date }>()
         }
 
         // Group rows by unit to find most recent valid reading for each
@@ -78,7 +93,7 @@ async function getFacilityPowerData(stationCode: string, unitLastSeen: string) {
         })
 
         // Get most recent valid reading for each unit
-        const powerByUnit = new Map<string, number>()
+        const powerByUnit = new Map<string, { power: number; interval: Date }>()
         unitRows.forEach((readings, unitCode) => {
             // Sort by date descending to get most recent first
             readings.sort((a, b) => b.date.getTime() - a.date.getTime())
@@ -86,14 +101,17 @@ async function getFacilityPowerData(stationCode: string, unitLastSeen: string) {
             // Take first reading that has a valid power value
             const validReading = readings.find((r) => r.power >= 0)
             if (validReading) {
-                powerByUnit.set(unitCode, validReading.power)
+                powerByUnit.set(unitCode, {
+                    power: validReading.power,
+                    interval: validReading.date,
+                })
             }
         })
 
         return powerByUnit
     } catch (error) {
         console.error(`Error fetching power data for ${stationCode}:`, error)
-        return new Map<string, number>()
+        return new Map<string, { power: number; interval: Date }>()
     }
 }
 
@@ -144,8 +162,13 @@ export async function generateData(): Promise<FacilityData> {
                 facility.units.push({
                     code: record.unit_code,
                     capacity: record.unit_capacity,
-                    lastSeen: record.unit_last_seen,
+                    rawLastSeen: record.unit_last_seen,
+                    lastSeen: toNetworkTime(
+                        new Date(record.unit_last_seen),
+                        true,
+                    ),
                     status: record.unit_status,
+                    active: false,
                 })
             }
         })
@@ -153,31 +176,70 @@ export async function generateData(): Promise<FacilityData> {
         // Second pass: fetch and add power data for each facility
         const facilities = Array.from(facilitiesMap.values())
 
+        // Get current network time to check if units are active
+        const now = new Date()
+        const currentNetworkTime = toZonedTime(now, NETWORK_TIMEZONE)
+
         for (const facility of facilities) {
             facility.units = await Promise.all(
                 facility.units.map(async (unit) => {
+                    // First check if unit is active based on data_last_seen
+                    const isActive = isUnitActive(
+                        unit.lastSeen,
+                        currentNetworkTime,
+                    )
+                    console.log(
+                        `${facility.name} - ${unit.code}: Raw data_last_seen ${
+                            unit.rawLastSeen
+                        }, Converted ${unit.lastSeen} - ${
+                            isActive ? "ACTIVE" : "INACTIVE"
+                        }`,
+                    )
+
+                    if (!isActive) {
+                        return {
+                            ...unit,
+                            active: false,
+                        }
+                    }
+
                     const powerData = await getFacilityPowerData(
                         facility.code,
                         unit.lastSeen,
                     )
 
-                    const power = powerData.get(unit.code)
-                    if (power === undefined) {
-                        return unit
+                    const data = powerData.get(unit.code)
+                    if (!data) {
+                        console.log(
+                            `${facility.name} - ${unit.code}: No current power data`,
+                        )
+                        return {
+                            ...unit,
+                            active: false,
+                        }
                     }
 
+                    const latestInterval = toNetworkTime(data.interval, true)
+
                     // Warn about excessive power but still show the reading
-                    if (power > unit.capacity) {
+                    if (data.power > unit.capacity) {
                         console.warn(
-                            `Power reading ${power}MW exceeds capacity ${unit.capacity}MW for unit ${unit.code} in ${facility.name}`,
+                            `Power reading ${data.power}MW exceeds capacity ${unit.capacity}MW for unit ${unit.code} in ${facility.name}`,
                         )
                     }
 
-                    const capacityFactor = (power / unit.capacity) * 100
+                    const capacityFactor = (data.power / unit.capacity) * 100
+
+                    console.log(
+                        `${facility.name} - ${unit.code}: Latest interval ${latestInterval} (${data.power}MW)`,
+                    )
+
                     return {
                         ...unit,
-                        currentPower: power,
+                        currentPower: data.power,
                         capacityFactor,
+                        latestInterval,
+                        active: true,
                     }
                 }),
             )
@@ -185,7 +247,7 @@ export async function generateData(): Promise<FacilityData> {
 
         const data: FacilityData = {
             facilities,
-            lastUpdated: new Date().toISOString(),
+            lastUpdated: toNetworkTime(new Date()),
         }
 
         // Store the data in Vercel Blob

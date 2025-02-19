@@ -1,4 +1,5 @@
 import { formatDistanceToNow } from "date-fns"
+import { format } from "date-fns"
 import numeral from "numeral"
 
 export const regionNames: Record<string, string> = {
@@ -18,6 +19,32 @@ export function formatLastSeen(date: Date): string {
 
 export function formatMW(value: number): string {
     return numeral(value).format("0,0")
+}
+
+export function formatNetworkTime(date: Date | string): string {
+    try {
+        // If we get a string with timezone, parse it carefully
+        let parsedDate: Date
+        if (typeof date === "string") {
+            // For dates with +10:00, we need to parse them as UTC
+            // by replacing +10:00 with Z to keep the same time
+            parsedDate = new Date(date.replace("+10:00", "Z"))
+        } else {
+            parsedDate = date
+        }
+
+        // Validate the date is valid
+        if (isNaN(parsedDate.getTime())) {
+            console.error("Invalid date value:", date)
+            return "Invalid date"
+        }
+
+        // Format the time - use the exact time without timezone adjustments
+        return format(parsedDate, "h:mm a, d MMM yyyy")
+    } catch (error) {
+        console.error("Error formatting date:", date, error)
+        return "Invalid date"
+    }
 }
 
 // Format unit codes to be more readable

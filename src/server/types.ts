@@ -32,9 +32,12 @@ export interface Unit {
     code: string
     capacity: number
     lastSeen: string
+    rawLastSeen: string // Original data_last_seen value
     status: string
     currentPower?: number
     capacityFactor?: number
+    latestInterval?: string
+    active: boolean
 }
 
 export interface Facility {
