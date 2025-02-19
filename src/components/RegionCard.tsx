@@ -14,12 +14,12 @@ export function RegionCard({ region, facilities }: RegionCardProps) {
     const stats = calculateRegionStats(facilities)
 
     return (
-        <div className="bg-neutral-800/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-neutral-700">
+        <div className="bg-neutral-800/90 backdrop-blur-[2px] rounded-2xl shadow-xl p-8 border border-neutral-700 transform-gpu">
             <div className="flex flex-wrap items-center gap-4 mb-8">
-                <h2 className="text-3xl font-light tracking-tight text-neutral-100 mr-auto">
+                <h2 className="text-3xl font-light tracking-tight text-neutral-100 mr-auto transform-gpu">
                     {regionNames[region] || region}
                 </h2>
-                <div className="px-4 py-2 rounded-full bg-neutral-900/50 backdrop-blur-sm">
+                <div className="px-4 py-2 rounded-full bg-neutral-900/50 backdrop-blur-[2px] transform-gpu">
                     <div className="text-sm font-medium text-neutral-200 flex items-center gap-2">
                         <Battery className="w-4 h-4" />
                         <span className="font-semibold">Operational</span>{" "}
@@ -29,7 +29,7 @@ export function RegionCard({ region, facilities }: RegionCardProps) {
                         </span>
                     </div>
                 </div>
-                <div className="px-4 py-2 rounded-full bg-neutral-900/50 backdrop-blur-sm">
+                <div className="px-4 py-2 rounded-full bg-neutral-900/50 backdrop-blur-[2px] transform-gpu">
                     <div className="text-sm font-medium text-neutral-200 flex items-center gap-2">
                         <Zap className="w-4 h-4" />
                         <span className="font-semibold">Operating</span>{" "}
@@ -39,7 +39,7 @@ export function RegionCard({ region, facilities }: RegionCardProps) {
                         </span>
                     </div>
                 </div>
-                <div className="px-4 py-2 rounded-full bg-neutral-900/50 backdrop-blur-sm">
+                <div className="px-4 py-2 rounded-full bg-neutral-900/50 backdrop-blur-[2px] transform-gpu">
                     <div className="text-sm font-medium text-neutral-400 flex items-center gap-2">
                         <Power className="w-4 h-4" />
                         <span className="font-semibold">Total</span>{" "}
@@ -47,7 +47,7 @@ export function RegionCard({ region, facilities }: RegionCardProps) {
                     </div>
                 </div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 transform-gpu">
                 {facilities.map((facility) => (
                     <FacilityCard key={facility.code} facility={facility} />
                 ))}

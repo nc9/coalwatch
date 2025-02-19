@@ -42,28 +42,31 @@ export default async function Home() {
     )
 
     return (
-        <div className="min-h-screen bg-black text-neutral-200">
+        <div className="min-h-screen bg-black text-neutral-200 overflow-x-hidden">
             {/* Hero section with image */}
-            <div className="relative h-[60vh] min-h-[500px] w-full">
-                <Image
-                    src="/splash.jpg"
-                    alt="Coal power station"
-                    fill
-                    priority
-                    className="object-cover object-center"
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black" />
+            <div className="relative h-[60vh] min-h-[500px] w-full will-change-transform">
+                <div className="absolute inset-0">
+                    <Image
+                        src="/splash.jpg"
+                        alt="Coal power station"
+                        fill
+                        priority
+                        sizes="100vw"
+                        className="object-cover object-center"
+                    />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/80 to-black will-change-transform" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                    <h1 className="text-7xl font-normal tracking-wide text-center text-neutral-100 font-bebas uppercase">
+                    <h1 className="text-7xl font-normal tracking-wide text-center text-neutral-100 font-bebas uppercase will-change-transform">
                         Coal Watch Australia
                     </h1>
                 </div>
             </div>
 
             {/* Main content */}
-            <div className="relative">
+            <div className="relative bg-black">
                 <div className="max-w-[1400px] mx-auto px-6 sm:px-8 py-12">
-                    <div className="text-sm text-neutral-400 text-center mb-12">
+                    <div className="text-sm text-neutral-400 text-center mb-12 will-change-transform">
                         Last updated{" "}
                         {formatDistanceToNow(new Date(lastUpdated), {
                             addSuffix: true,
