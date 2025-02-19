@@ -10,6 +10,7 @@
     },
     "dependencies": {
         "@openelectricity/client": "^0.3.0",
+        "@vercel/blob": "^0.27.1",
         "date-fns": "^4.1.0",
         "date-fns-tz": "^3.2.0",
         "lucide-react": "^0.475.0",

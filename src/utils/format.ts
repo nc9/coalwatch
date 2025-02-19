@@ -18,7 +18,7 @@ export function formatLastSeen(date: Date): string {
 }
 
 export function formatMW(value: number): string {
-    return `${numeral(value).format("0,0")} MW`
+    return numeral(value).format("0,0")
 }
 
 // Format unit codes to be more readable
@@ -46,4 +46,9 @@ export function formatUnitCode(code: string): string {
             .replace(/\s+/g, " ")
             .trim()
     )
+}
+
+export function formatPercentage(value: number | undefined): string {
+    if (value === undefined) return "-%"
+    return `${Math.round(value)}%`
 }

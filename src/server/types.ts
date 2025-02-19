@@ -13,6 +13,7 @@ export interface IFacilityRecord {
     unit_capacity: number | null
     unit_last_seen: string | null
     unit_status: string | null
+    unit_current_power: number | null
 }
 
 // This is our internal type after data transformation
@@ -27,14 +28,24 @@ export interface FacilityRecord {
     unit_status: string | null
 }
 
+export interface Unit {
+    code: string
+    capacity: number
+    lastSeen: string
+    status: string
+    currentPower?: number
+    capacityFactor?: number
+}
+
 export interface Facility {
     name: string
     code: string
     region: string
-    units: {
-        code: string
-        capacity: number
-        lastSeen: Date
-        status: string
-    }[]
+    units: Unit[]
+    lastUpdated: string
+}
+
+export interface FacilityData {
+    facilities: Facility[]
+    lastUpdated: string
 }

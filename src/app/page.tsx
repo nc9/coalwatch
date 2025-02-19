@@ -1,65 +1,43 @@
-import { getFacilities } from "@/server/facilities"
-import type { IFacilityRecord, Facility } from "@/server/types"
 import { regionOrder } from "@/utils/format"
 import Image from "next/image"
 import { Footer } from "@/components/Footer"
 import { RegionCard } from "@/components/RegionCard"
+import type { Facility, FacilityData } from "@/server/types"
 
-function groupFacilitiesByRegion(
-    records: IFacilityRecord[],
-): Map<string, Facility[]> {
-    const facilitiesMap = new Map<string, Facility>()
+// Revalidate every 5 minutes to match the data update frequency
+export const revalidate = 300
 
-    records.forEach((record) => {
-        // Skip records with null values
-        if (
-            record.unit_capacity === null ||
-            record.unit_last_seen === null ||
-            record.unit_status === null
+async function getFacilityData(): Promise<FacilityData> {
+    const blobUrl = process.env.NEXT_PUBLIC_FACILITIES_BLOB_URL
+    if (!blobUrl) {
+        throw new Error(
+            "NEXT_PUBLIC_FACILITIES_BLOB_URL environment variable is not set",
         )
-            return
+    }
 
-        if (!facilitiesMap.has(record.facility_code)) {
-            facilitiesMap.set(record.facility_code, {
-                name: record.facility_name,
-                code: record.facility_code,
-                region: record.facility_region,
-                units: [],
-            })
-        }
+    const response = await fetch(blobUrl, { next: { revalidate: 300 } })
+    if (!response.ok) {
+        throw new Error(`Failed to fetch facility data: ${response.statusText}`)
+    }
 
-        const facility = facilitiesMap.get(record.facility_code)
-        if (facility) {
-            facility.units.push({
-                code: record.unit_code,
-                capacity: record.unit_capacity,
-                lastSeen: new Date(record.unit_last_seen),
-                status: record.unit_status,
-            })
-        }
-    })
-
-    // Then group by region and sort by our custom order
-    const groupedFacilities = new Map<string, Facility[]>()
-    Array.from(facilitiesMap.values()).forEach((facility) => {
-        const region = facility.region
-        if (!groupedFacilities.has(region)) {
-            groupedFacilities.set(region, [])
-        }
-        groupedFacilities.get(region)?.push(facility)
-    })
-
-    return groupedFacilities
+    return response.json()
 }
 
 export default async function Home() {
-    const records = await getFacilities()
-    const facilitiesByRegion = groupFacilitiesByRegion(records.getRecords())
+    const { facilities, lastUpdated } = await getFacilityData()
 
+    // Group facilities by region
+    const facilitiesByRegion = new Map<string, Facility[]>()
+    facilities.forEach((facility: Facility) => {
+        if (!facilitiesByRegion.has(facility.region)) {
+            facilitiesByRegion.set(facility.region, [])
+        }
+        facilitiesByRegion.get(facility.region)?.push(facility)
+    })
+
+    // Sort regions according to our custom order
     const sortedRegions = Array.from(facilitiesByRegion.entries()).sort(
-        (a, b) => {
-            return regionOrder.indexOf(a[0]) - regionOrder.indexOf(b[0])
-        },
+        (a, b) => regionOrder.indexOf(a[0]) - regionOrder.indexOf(b[0]),
     )
 
     return (
@@ -84,6 +62,12 @@ export default async function Home() {
             {/* Main content */}
             <div className="relative">
                 <div className="max-w-[1400px] mx-auto px-6 sm:px-8 py-12">
+                    <div className="text-sm text-neutral-400 mb-8">
+                        Last updated:{" "}
+                        {new Date(lastUpdated).toLocaleString("en-AU", {
+                            timeZone: "Australia/Sydney",
+                        })}
+                    </div>
                     <div className="space-y-16">
                         {sortedRegions.map(([region, facilities]) => (
                             <RegionCard

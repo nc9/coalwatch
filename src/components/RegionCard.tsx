@@ -3,6 +3,7 @@ import { FacilityCard } from "./FacilityCard"
 import { regionNames } from "@/utils/format"
 import { calculateRegionStats } from "@/utils/helpers"
 import { formatMW } from "@/utils/format"
+import { Power, Zap, Battery, Factory } from "lucide-react"
 
 interface RegionCardProps {
     region: string
@@ -14,19 +15,35 @@ export function RegionCard({ region, facilities }: RegionCardProps) {
 
     return (
         <div className="bg-neutral-800/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-neutral-700">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 sm:gap-8 mb-8">
-                <h2 className="text-3xl font-light tracking-tight text-neutral-100">
+            <div className="flex flex-wrap items-center gap-4 mb-8">
+                <h2 className="text-3xl font-light tracking-tight text-neutral-100 mr-auto">
                     {regionNames[region] || region}
                 </h2>
-                <div className="flex flex-row sm:flex-col sm:text-right gap-4 sm:gap-0 items-baseline sm:items-end text-sm sm:text-base">
-                    <div className="font-light text-neutral-200">
-                        Operational: {formatMW(stats.operationalCapacity)}
-                        <span className="ml-1 font-normal text-neutral-400">
+                <div className="px-4 py-2 rounded-full bg-neutral-900/50 backdrop-blur-sm">
+                    <div className="text-sm font-medium text-neutral-200 flex items-center gap-2">
+                        <Battery className="w-4 h-4" />
+                        <span className="font-semibold">Operational</span>{" "}
+                        {stats.operationalCapacity} MW
+                        <span className="ml-1 text-neutral-400">
                             ({stats.percentageOperational}%)
                         </span>
                     </div>
-                    <div className="text-neutral-400">
-                        Total: {formatMW(stats.totalCapacity)}
+                </div>
+                <div className="px-4 py-2 rounded-full bg-neutral-900/50 backdrop-blur-sm">
+                    <div className="text-sm font-medium text-neutral-200 flex items-center gap-2">
+                        <Zap className="w-4 h-4" />
+                        <span className="font-semibold">Operating</span>{" "}
+                        {formatMW(stats.currentPower)} MW
+                        <span className="ml-1 text-neutral-400">
+                            ({stats.operatingCapacityPercentage}%)
+                        </span>
+                    </div>
+                </div>
+                <div className="px-4 py-2 rounded-full bg-neutral-900/50 backdrop-blur-sm">
+                    <div className="text-sm font-medium text-neutral-400 flex items-center gap-2">
+                        <Power className="w-4 h-4" />
+                        <span className="font-semibold">Total</span>{" "}
+                        {formatMW(stats.totalCapacity)} MW
                     </div>
                 </div>
             </div>
