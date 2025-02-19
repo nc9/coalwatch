@@ -49,21 +49,35 @@ async function getFacilityPowerData(
 
         if (!datatable) return new Map<string, number>()
 
-        const rows = datatable.getRows()
-        rows.sort((a, b) => {
-            const dateA = a.interval as Date
-            const dateB = b.interval as Date
-            return dateB.getTime() - dateA.getTime()
-        })
+        // Group rows by unit to find most recent valid reading for each
+        const unitRows = new Map<string, { power: number; date: Date }[]>()
 
-        const powerByUnit = new Map<string, number>()
-        rows.forEach((row) => {
+        datatable.getRows().forEach((row) => {
             if (
                 typeof row.unit_code === "string" &&
                 typeof row.power === "number" &&
-                !powerByUnit.has(row.unit_code)
+                row.interval instanceof Date
             ) {
-                powerByUnit.set(row.unit_code, row.power)
+                if (!unitRows.has(row.unit_code)) {
+                    unitRows.set(row.unit_code, [])
+                }
+                unitRows.get(row.unit_code)?.push({
+                    power: row.power,
+                    date: row.interval,
+                })
+            }
+        })
+
+        // Get most recent valid reading for each unit
+        const powerByUnit = new Map<string, number>()
+        unitRows.forEach((readings, unitCode) => {
+            // Sort by date descending to get most recent first
+            readings.sort((a, b) => b.date.getTime() - a.date.getTime())
+
+            // Take first reading that has a valid power value
+            const validReading = readings.find((r) => r.power >= 0)
+            if (validReading) {
+                powerByUnit.set(unitCode, validReading.power)
             }
         })
 
@@ -130,7 +144,8 @@ export async function generateData(): Promise<FacilityData> {
 
             facility.units = facility.units.map((unit) => {
                 const power = powerData.get(unit.code)
-                if (power === undefined) return unit
+                // Skip invalid or excessive power readings
+                if (power === undefined || power > unit.capacity) return unit
 
                 const capacityFactor = (power / unit.capacity) * 100
                 return {
