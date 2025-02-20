@@ -17,7 +17,9 @@ function isUnitActive(lastSeen: string, currentNetworkTime: Date): boolean {
   const lastSeenDate = new Date(lastSeen)
   // Compare with network time minus one hour
   const oneHourAgo = new Date(currentNetworkTime.getTime() - 60 * 60 * 1000)
-  debug(`Checking if unit is active: lastSeen=${lastSeen}, oneHourAgo=${oneHourAgo.toISOString()}`)
+  debug(
+    `Checking if unit is active: lastSeen=${lastSeen}, oneHourAgo=${oneHourAgo.toISOString()}`
+  )
   return lastSeenDate > oneHourAgo
 }
 
@@ -42,13 +44,22 @@ function getCurrentNetworkTime(): Date {
 /**
  * Fetches power data for all facilities
  */
-async function getFacilityPowerData(facilityCodes: string[], lastSeenDates: Map<string, string>) {
+async function getFacilityPowerData(
+  facilityCodes: string[],
+  lastSeenDates: Map<string, string>
+) {
   try {
     // Find the latest lastSeen date to use as the query window
-    const latestLastSeen = new Date(Math.max(...Array.from(lastSeenDates.values()).map(d => new Date(d).getTime())))
+    const latestLastSeen = new Date(
+      Math.max(
+        ...Array.from(lastSeenDates.values()).map((d) => new Date(d).getTime())
+      )
+    )
     const firstInterval = new Date(latestLastSeen.getTime() - 60 * 60 * 1000) // One hour before
 
-    debug(`Fetching power data for ${facilityCodes.length} facilities from ${formatDate(firstInterval)} to ${formatDate(latestLastSeen)}`)
+    debug(
+      `Fetching power data for ${facilityCodes.length} facilities from ${formatDate(firstInterval)} to ${formatDate(latestLastSeen)}`
+    )
 
     const { datatable } = await client.getFacilityData(
       "NEM",
@@ -56,7 +67,7 @@ async function getFacilityPowerData(facilityCodes: string[], lastSeenDates: Map<
       ["power"],
       {
         interval: "5m",
-        dateStart: formatDate(firstInterval)
+        dateStart: formatDate(firstInterval),
       }
     )
 
@@ -72,31 +83,36 @@ async function getFacilityPowerData(facilityCodes: string[], lastSeenDates: Map<
     debug(`Got ${rows.length} rows of power data`)
 
     // Group by unit and find latest reading
-    const unitReadings = rows.reduce((acc, row) => {
-      const unitCode = row.unit_code as string
-      const power = row.power as number
-      const interval = row.interval as Date
+    const unitReadings = rows.reduce(
+      (acc, row) => {
+        const unitCode = row.unit_code as string
+        const power = row.power as number
+        const interval = row.interval as Date
 
-      if (!acc[unitCode]) {
-        acc[unitCode] = []
-      }
+        if (!acc[unitCode]) {
+          acc[unitCode] = []
+        }
 
-      if (typeof power === 'number' && !isNaN(power) && interval) {
-        acc[unitCode].push({
-          power,
-          date: interval.toISOString(),
-        })
-      }
-      return acc
-    }, {} as Record<string, { power: number; date: string }[]>)
+        if (typeof power === "number" && !isNaN(power) && interval) {
+          acc[unitCode].push({
+            power,
+            date: interval.toISOString(),
+          })
+        }
+        return acc
+      },
+      {} as Record<string, { power: number; date: string }[]>
+    )
 
     // Find latest valid reading for each unit
     Object.entries(unitReadings).forEach(([unitCode, readings]) => {
       // Sort by date descending
-      readings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      readings.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      )
 
       // Take first reading with positive power
-      const validReading = readings.find(r => r.power >= 0)
+      const validReading = readings.find((r) => r.power >= 0)
       if (validReading) {
         powerByUnit.set(unitCode, {
           power: validReading.power,
@@ -168,7 +184,7 @@ export async function generateData(): Promise<FacilityData> {
 
     // Second pass: fetch and add power data for all facilities at once
     const facilities = Array.from(facilitiesMap.values())
-    const facilityCodes = facilities.map(f => f.code)
+    const facilityCodes = facilities.map((f) => f.code)
 
     // Get current network time to check if units are active
     const currentNetworkTime = getCurrentNetworkTime()
@@ -210,7 +226,9 @@ export async function generateData(): Promise<FacilityData> {
           )
         }
 
-        const capacityFactor = Number((data.power / unit.capacity * 100).toFixed(2))
+        const capacityFactor = Number(
+          ((data.power / unit.capacity) * 100).toFixed(2)
+        )
 
         debug(
           `${facility.name} - ${unit.code}: Latest interval ${data.interval} (${data.power}MW)`
