@@ -207,7 +207,7 @@ export async function generateData(): Promise<FacilityData> {
           return {
             ...unit,
             active: false,
-            latestInterval: unit.lastSeen // Use lastSeen as latestInterval for inactive units
+            latestInterval: unit.lastSeen, // Use lastSeen as latestInterval for inactive units
           }
         }
 
@@ -217,7 +217,7 @@ export async function generateData(): Promise<FacilityData> {
           return {
             ...unit,
             active: false,
-            latestInterval: unit.lastSeen // Use lastSeen as latestInterval when no power data
+            latestInterval: unit.lastSeen, // Use lastSeen as latestInterval when no power data
           }
         }
 
