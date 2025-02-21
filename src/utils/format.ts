@@ -1,6 +1,9 @@
-import { formatDistanceToNow } from "date-fns"
-import { format } from "date-fns"
+import { format, formatDistanceToNow } from "date-fns"
+import dayjs from "dayjs"
+import relativeTime from "dayjs/plugin/relativeTime"
 import numeral from "numeral"
+
+dayjs.extend(relativeTime)
 
 export const regionNames: Record<string, string> = {
   NSW1: "New South Wales",
@@ -77,4 +80,8 @@ export function formatUnitCode(code: string): string {
 export function formatPercentage(value: number | undefined): string {
   if (value === undefined) return "-%"
   return `${Math.round(value)}%`
+}
+
+export function formatLastSeenDayjs(date: string): string {
+  return dayjs(date).fromNow()
 }

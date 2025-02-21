@@ -1,4 +1,9 @@
-import { formatMW, formatUnitCode, formatPercentage } from "@/utils/format"
+import {
+  formatLastSeenDayjs,
+  formatMW,
+  formatPercentage,
+  formatUnitCode,
+} from "@/utils/format"
 import * as Tooltip from "@radix-ui/react-tooltip"
 import { format } from "date-fns"
 
@@ -9,6 +14,7 @@ interface FacilityUnitProps {
   currentPower?: number
   capacityFactor?: number
   latestInterval?: string
+  lastSeen?: string
 }
 
 export function FacilityUnit({
@@ -18,6 +24,7 @@ export function FacilityUnit({
   currentPower,
   capacityFactor,
   latestInterval,
+  lastSeen,
 }: FacilityUnitProps) {
   const formatTimeString = (isoString?: string) => {
     if (!isoString) return ""
@@ -76,9 +83,9 @@ Generation: ${formatMW(currentPower || 0)} MW`
                   )}
                 </div>
               </div>
-              {!active && latestInterval && (
+              {!active && lastSeen && (
                 <div className="relative mt-2 text-sm opacity-75">
-                  Last seen {formatTimeString(latestInterval)}
+                  Last seen {formatLastSeenDayjs(lastSeen)}
                 </div>
               )}
             </div>

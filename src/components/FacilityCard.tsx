@@ -1,9 +1,9 @@
 "use client"
 
-import { useMemo } from "react"
 import type { Facility, Unit } from "@/server/types"
-import { FacilityUnit } from "./FacilityUnit"
 import { ExternalLink, Factory } from "lucide-react"
+import { useMemo } from "react"
+import { FacilityUnit } from "./FacilityUnit"
 
 interface FacilityCardProps {
   facility: Facility
@@ -73,6 +73,7 @@ export function FacilityCard({ facility }: FacilityCardProps) {
               currentPower={unit.currentPower}
               capacityFactor={unit.capacityFactor}
               latestInterval={unit.latestInterval}
+              lastSeen={unit.lastSeen}
             />
           ))}
         </div>
