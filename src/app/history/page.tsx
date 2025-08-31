@@ -1,9 +1,9 @@
 import { regionOrder } from "@/utils/format"
 import Image from "next/image"
 import { Footer } from "@/components/Footer"
-import { RegionCard } from "@/components/RegionCard"
 import { ViewTabs } from "@/components/ViewTabs"
-import type { Facility, FacilityData } from "@/server/types"
+import { HistoryRegionCard } from "@/components/HistoryRegionCard"
+import type { Facility, FacilityData, HistoryData } from "@/server/types"
 import { formatDistanceToNow } from "date-fns"
 
 // Revalidate every 5 minutes to match the data update frequency
@@ -25,8 +25,29 @@ async function getFacilityData(): Promise<FacilityData> {
   return response.json()
 }
 
-export default async function Home() {
+async function getHistoryData(): Promise<HistoryData> {
+  const historyUrl = process.env.NEXT_PUBLIC_HISTORY_BLOB_URL
+  if (!historyUrl) {
+    // Fallback to empty history if not configured yet
+    return { history: {} }
+  }
+
+  try {
+    const response = await fetch(historyUrl, { next: { revalidate: 300 } })
+    if (!response.ok) {
+      console.error(`Failed to fetch history data: ${response.statusText}`)
+      return { history: {} }
+    }
+    return response.json()
+  } catch (error) {
+    console.error("Error fetching history data:", error)
+    return { history: {} }
+  }
+}
+
+export default async function HistoryPage() {
   const { facilities, lastUpdated } = await getFacilityData()
+  const historyData = await getHistoryData()
 
   // Group facilities by region
   const facilitiesByRegion = new Map<string, Facility[]>()
@@ -76,10 +97,11 @@ export default async function Home() {
           </div>
           <div className="space-y-16">
             {sortedRegions.map(([region, facilities]) => (
-              <RegionCard
+              <HistoryRegionCard
                 key={region}
                 region={region}
                 facilities={facilities}
+                historyData={historyData.history}
               />
             ))}
           </div>

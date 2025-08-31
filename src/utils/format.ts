@@ -16,6 +16,15 @@ export const regionNames: Record<string, string> = {
 // Order for regions
 export const regionOrder = ["NSW1", "QLD1", "VIC1", "SA1", "TAS1"]
 
+// Colors for regions
+export const regionColors: Record<string, string> = {
+  NSW1: "bg-blue-900",
+  QLD1: "bg-purple-900",
+  VIC1: "bg-indigo-900",
+  SA1: "bg-orange-900",
+  TAS1: "bg-green-900",
+}
+
 export function formatLastSeen(date: Date): string {
   return `Last seen ${formatDistanceToNow(date, { addSuffix: true })}`
 }

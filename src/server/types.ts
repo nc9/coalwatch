@@ -51,3 +51,14 @@ export interface FacilityData {
   facilities: Facility[]
   lastUpdated: string
 }
+
+export interface UnitHistoryDay {
+  date: string
+  active: boolean
+  averageCapacityFactor?: number
+}
+
+export interface HistoryData {
+  history: Record<string, UnitHistoryDay[]>
+  lastUpdated?: string
+}
