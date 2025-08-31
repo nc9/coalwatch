@@ -40,7 +40,6 @@ export function HistoryUnitStripe({
     })
   }
 
-
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-sm">
@@ -67,8 +66,8 @@ export function HistoryUnitStripe({
                     !hasData
                       ? "bg-neutral-700 hover:bg-neutral-600"
                       : isActive
-                      ? "bg-green-600 hover:bg-green-500"
-                      : "bg-red-600 hover:bg-red-500"
+                        ? "bg-green-600 hover:bg-green-500"
+                        : "bg-red-600 hover:bg-red-500"
                   }`}
                   style={{ width: "8px" }}
                 />
