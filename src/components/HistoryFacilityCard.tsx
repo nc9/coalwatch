@@ -6,7 +6,10 @@ interface HistoryFacilityCardProps {
   historyData: Record<string, UnitHistoryDay[]>
 }
 
-export function HistoryFacilityCard({ facility, historyData }: HistoryFacilityCardProps) {
+export function HistoryFacilityCard({
+  facility,
+  historyData,
+}: HistoryFacilityCardProps) {
   const totalCapacity = facility.units.reduce(
     (sum, unit) => sum + (unit.capacity || 0),
     0
@@ -15,7 +18,9 @@ export function HistoryFacilityCard({ facility, historyData }: HistoryFacilityCa
   return (
     <div className="rounded-lg bg-neutral-900 p-6">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-neutral-100">{facility.name}</h3>
+        <h3 className="text-lg font-semibold text-neutral-100">
+          {facility.name}
+        </h3>
         <div className="text-sm text-neutral-400">
           {totalCapacity} MW • {facility.units.length} units
         </div>

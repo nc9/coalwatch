@@ -9,9 +9,12 @@ interface HistoryUnitStripeProps {
   unitHistory?: UnitHistoryDay[]
 }
 
-export function HistoryUnitStripe({ unit, unitHistory }: HistoryUnitStripeProps) {
+export function HistoryUnitStripe({
+  unit,
+  unitHistory,
+}: HistoryUnitStripeProps) {
   const [hoveredDay, setHoveredDay] = useState<number | null>(null)
-  
+
   // Generate last 30 days
   const today = startOfDay(new Date())
   const days = Array.from({ length: 30 }, (_, i) => {
@@ -24,7 +27,10 @@ export function HistoryUnitStripe({ unit, unitHistory }: HistoryUnitStripeProps)
   })
 
   // Create a map for quick history lookup
-  const historyMap = new Map<string, { active: boolean; averageCapacityFactor?: number }>()
+  const historyMap = new Map<
+    string,
+    { active: boolean; averageCapacityFactor?: number }
+  >()
   if (unitHistory) {
     unitHistory.forEach((day) => {
       historyMap.set(day.date, {
@@ -57,11 +63,11 @@ export function HistoryUnitStripe({ unit, unitHistory }: HistoryUnitStripeProps)
             const historyData = historyMap.get(day.dateString)
             const isActive = historyData?.active ?? generateMockStatus(unit)
             const capacityFactor = historyData?.averageCapacityFactor
-            
+
             return (
               <div
                 key={day.dateString}
-                className="relative group"
+                className="group relative"
                 onMouseEnter={() => setHoveredDay(index)}
                 onMouseLeave={() => setHoveredDay(null)}
               >
@@ -74,10 +80,12 @@ export function HistoryUnitStripe({ unit, unitHistory }: HistoryUnitStripeProps)
                   style={{ width: "8px" }}
                 />
                 {hoveredDay === index && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-10 pointer-events-none">
-                    <div className="bg-neutral-800 text-xs text-neutral-200 px-2 py-1 rounded whitespace-nowrap">
+                  <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2">
+                    <div className="whitespace-nowrap rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-200">
                       <div>{day.label}</div>
-                      <div className={isActive ? "text-green-400" : "text-red-400"}>
+                      <div
+                        className={isActive ? "text-green-400" : "text-red-400"}
+                      >
                         {isActive ? "Online" : "Offline"}
                       </div>
                       {capacityFactor !== undefined && (
@@ -92,7 +100,7 @@ export function HistoryUnitStripe({ unit, unitHistory }: HistoryUnitStripeProps)
             )
           })}
         </div>
-        <div className="flex justify-between mt-1 text-[10px] text-neutral-500">
+        <div className="mt-1 flex justify-between text-[10px] text-neutral-500">
           <span>30 days ago</span>
           <span>Today</span>
         </div>
