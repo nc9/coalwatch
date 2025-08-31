@@ -40,16 +40,6 @@ export function HistoryUnitStripe({
     })
   }
 
-  // For now, generate mock data based on unit status
-  const generateMockStatus = (unit: Unit) => {
-    // If unit is currently active, show mostly green with some red days
-    if (unit.active) {
-      // Random outages with less frequency for active units
-      return Math.random() > 0.15
-    }
-    // If unit is inactive, show mostly red with occasional green days
-    return Math.random() > 0.85
-  }
 
   return (
     <div className="space-y-1">
@@ -61,7 +51,8 @@ export function HistoryUnitStripe({
         <div className="flex gap-[2px]">
           {days.map((day, index) => {
             const historyData = historyMap.get(day.dateString)
-            const isActive = historyData?.active ?? generateMockStatus(unit)
+            const hasData = historyData !== undefined
+            const isActive = historyData?.active
             const capacityFactor = historyData?.averageCapacityFactor
 
             return (
@@ -73,13 +64,15 @@ export function HistoryUnitStripe({
               >
                 <div
                   className={`h-6 flex-1 rounded-sm transition-all ${
-                    isActive
+                    !hasData
+                      ? "bg-neutral-700 hover:bg-neutral-600"
+                      : isActive
                       ? "bg-green-600 hover:bg-green-500"
                       : "bg-red-600 hover:bg-red-500"
                   }`}
                   style={{ width: "8px" }}
                 />
-                {hoveredDay === index && (
+                {hoveredDay === index && hasData && (
                   <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2">
                     <div className="whitespace-nowrap rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-200">
                       <div>{day.label}</div>
@@ -93,6 +86,14 @@ export function HistoryUnitStripe({
                           {(capacityFactor * 100).toFixed(1)}% capacity
                         </div>
                       )}
+                    </div>
+                  </div>
+                )}
+                {hoveredDay === index && !hasData && (
+                  <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2">
+                    <div className="whitespace-nowrap rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-400">
+                      <div>{day.label}</div>
+                      <div>No data</div>
                     </div>
                   </div>
                 )}
