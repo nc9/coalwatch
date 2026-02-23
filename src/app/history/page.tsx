@@ -2,14 +2,9 @@ import { regionOrder } from "@/utils/format"
 import Image from "next/image"
 import { Footer } from "@/components/Footer"
 import { ViewTabs } from "@/components/ViewTabs"
-import { HistoryRegionCard } from "@/components/HistoryRegionCard"
-import type {
-  Facility,
-  FacilityData,
-  HistoryData,
-  UnitHistoryDay,
-} from "@/server/types"
-import { formatDistanceToNow, format, subDays } from "date-fns"
+import { StatusRegionCard } from "@/components/StatusRegionCard"
+import type { Facility, FacilityData, StatusData } from "@/server/types"
+import { formatDistanceToNow } from "date-fns"
 
 // Revalidate every 5 minutes to match the data update frequency
 export const revalidate = 300
@@ -30,74 +25,45 @@ async function getFacilityData(): Promise<FacilityData> {
   return response.json()
 }
 
-async function getHistoryData(facilities: Facility[]): Promise<HistoryData> {
-  // Generate simulated history based on current facility status
-  // This is a temporary solution until historic data API is available
-  const history: Record<string, UnitHistoryDay[]> = {}
+async function getStatusData(): Promise<StatusData> {
+  const blobUrl =
+    process.env.NEXT_PUBLIC_STATUS_BLOB_URL ??
+    process.env.NEXT_PUBLIC_HISTORY_BLOB_URL
 
-  facilities.forEach((facility) => {
-    facility.units.forEach((unit) => {
-      const unitHistory: UnitHistoryDay[] = []
+  if (!blobUrl) {
+    console.warn("No status blob URL configured, returning empty status")
+    return {
+      status: {},
+      intervalMinutes: 30,
+      lastUpdated: new Date().toISOString(),
+    }
+  }
 
-      // Generate 30 days of history
-      for (let i = 29; i >= 0; i--) {
-        const date = subDays(new Date(), i)
-        const dateStr = format(date, "yyyy-MM-dd")
-
-        // Base the history on current unit status with some variation
-        let active = unit.active
-        let capacityFactor = unit.capacityFactor ? unit.capacityFactor / 100 : 0
-
-        // Add some realistic variation using a seeded random based on unit code and date
-        const seed =
-          unit.code
-            .split("")
-            .reduce((acc, char) => acc + char.charCodeAt(0), 0) + i
-        const random =
-          Math.sin(seed) * 10000 - Math.floor(Math.sin(seed) * 10000)
-
-        if (unit.active) {
-          // Active units: mostly online with occasional outages
-          if (random < 0.05) {
-            // 5% chance of outage
-            active = false
-            capacityFactor = 0
-          } else if (random < 0.2) {
-            // 15% chance of reduced capacity
-            capacityFactor = capacityFactor * (0.3 + random * 2.5)
-          }
-        } else {
-          // Inactive units: mostly offline with rare activity
-          if (random < 0.02) {
-            // 2% chance of being online
-            active = true
-            capacityFactor = 0.2 + random * 1.5
-          } else {
-            active = false
-            capacityFactor = 0
-          }
-        }
-
-        unitHistory.push({
-          date: dateStr,
-          active,
-          averageCapacityFactor: Math.min(1, Math.max(0, capacityFactor)),
-        })
+  try {
+    const response = await fetch(blobUrl, { next: { revalidate: 300 } })
+    if (!response.ok) {
+      console.error(`Failed to fetch status data: ${response.statusText}`)
+      return {
+        status: {},
+        intervalMinutes: 30,
+        lastUpdated: new Date().toISOString(),
       }
+    }
 
-      history[unit.code] = unitHistory
-    })
-  })
-
-  return {
-    history,
-    lastUpdated: new Date().toISOString(),
+    return response.json()
+  } catch (error) {
+    console.error("Error fetching status data:", error)
+    return {
+      status: {},
+      intervalMinutes: 30,
+      lastUpdated: new Date().toISOString(),
+    }
   }
 }
 
-export default async function HistoryPage() {
+export default async function StatusPage() {
   const { facilities, lastUpdated } = await getFacilityData()
-  const historyData = await getHistoryData(facilities)
+  const statusData = await getStatusData()
 
   // Group facilities by region
   const facilitiesByRegion = new Map<string, Facility[]>()
@@ -147,11 +113,11 @@ export default async function HistoryPage() {
           </div>
           <div className="space-y-16">
             {sortedRegions.map(([region, facilities]) => (
-              <HistoryRegionCard
+              <StatusRegionCard
                 key={region}
                 region={region}
                 facilities={facilities}
-                historyData={historyData.history}
+                statusData={statusData.status}
               />
             ))}
           </div>

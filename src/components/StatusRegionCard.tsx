@@ -1,18 +1,18 @@
 import { regionColors } from "@/utils/format"
-import { HistoryFacilityCard } from "./HistoryFacilityCard"
-import type { Facility, UnitHistoryDay } from "@/server/types"
+import { StatusFacilityCard } from "./StatusFacilityCard"
+import type { Facility, UnitStatusInterval } from "@/server/types"
 
-interface HistoryRegionCardProps {
+interface StatusRegionCardProps {
   region: string
   facilities: Facility[]
-  historyData: Record<string, UnitHistoryDay[]>
+  statusData: Record<string, UnitStatusInterval[]>
 }
 
-export function HistoryRegionCard({
+export function StatusRegionCard({
   region,
   facilities,
-  historyData,
-}: HistoryRegionCardProps) {
+  statusData,
+}: StatusRegionCardProps) {
   const bgColorClass =
     regionColors[region as keyof typeof regionColors] || "bg-neutral-800"
 
@@ -25,10 +25,10 @@ export function HistoryRegionCard({
       </h2>
       <div className="grid gap-4 lg:grid-cols-2">
         {facilities.map((facility) => (
-          <HistoryFacilityCard
+          <StatusFacilityCard
             key={facility.code}
             facility={facility}
-            historyData={historyData}
+            statusData={statusData}
           />
         ))}
       </div>

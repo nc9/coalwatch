@@ -1,17 +1,17 @@
-import type { Facility, UnitHistoryDay } from "@/server/types"
-import { HistoryUnitStripe } from "./HistoryUnitStripe"
+import type { Facility, UnitStatusInterval } from "@/server/types"
+import { StatusUnitStripe } from "./StatusUnitStripe"
 
-interface HistoryFacilityCardProps {
+interface StatusFacilityCardProps {
   facility: Facility
-  historyData: Record<string, UnitHistoryDay[]>
+  statusData: Record<string, UnitStatusInterval[]>
 }
 
-export function HistoryFacilityCard({
+export function StatusFacilityCard({
   facility,
-  historyData,
-}: HistoryFacilityCardProps) {
+  statusData,
+}: StatusFacilityCardProps) {
   const totalCapacity = facility.units.reduce(
-    (sum, unit) => sum + (unit.capacity || 0),
+    (sum, unit) => sum + Number(unit.capacity || 0),
     0
   )
 
@@ -22,15 +22,15 @@ export function HistoryFacilityCard({
           {facility.name}
         </h3>
         <div className="text-sm text-neutral-400">
-          {totalCapacity} MW • {facility.units.length} units
+          {Math.round(totalCapacity)} MW &middot; {facility.units.length} units
         </div>
       </div>
       <div className="space-y-3">
         {facility.units.map((unit) => (
-          <HistoryUnitStripe
+          <StatusUnitStripe
             key={unit.code}
             unit={unit}
-            unitHistory={historyData?.[unit.code]}
+            intervals={statusData?.[unit.code]}
           />
         ))}
       </div>

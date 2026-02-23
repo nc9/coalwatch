@@ -52,13 +52,15 @@ export interface FacilityData {
   lastUpdated: string
 }
 
-export interface UnitHistoryDay {
-  date: string
+export interface UnitStatusInterval {
+  timestamp: string
   active: boolean
-  averageCapacityFactor?: number
+  power?: number
+  capacityFactor?: number
 }
 
-export interface HistoryData {
-  history: Record<string, UnitHistoryDay[]>
+export interface StatusData {
+  status: Record<string, UnitStatusInterval[]>
+  intervalMinutes: number
   lastUpdated?: string
 }
