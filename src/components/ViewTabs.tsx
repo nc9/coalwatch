@@ -28,7 +28,7 @@ export function ViewTabs() {
               : "text-neutral-400 hover:text-neutral-200"
           }`}
         >
-          Status
+          History
         </Link>
       </div>
     </div>

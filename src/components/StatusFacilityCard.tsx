@@ -1,4 +1,5 @@
 import type { Facility, UnitStatusInterval } from "@/server/types"
+import { ExternalLink, Factory } from "lucide-react"
 import { StatusUnitStripe } from "./StatusUnitStripe"
 
 interface StatusFacilityCardProps {
@@ -6,25 +7,28 @@ interface StatusFacilityCardProps {
   statusData: Record<string, UnitStatusInterval[]>
 }
 
+function getFacilityUrl(code: string): string {
+  return `https://explore.openelectricity.org.au/facility/au/NEM/${code}/`
+}
+
 export function StatusFacilityCard({
   facility,
   statusData,
 }: StatusFacilityCardProps) {
-  const totalCapacity = facility.units.reduce(
-    (sum, unit) => sum + Number(unit.capacity || 0),
-    0
-  )
-
   return (
-    <div className="rounded-lg bg-neutral-900 p-6">
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-neutral-100">
+    <div className="rounded-xl bg-neutral-900/30 p-6 shadow-md">
+      <h3 className="mb-5 flex items-center gap-2 text-2xl font-light text-neutral-200 hover:text-neutral-100">
+        <Factory className="h-6 w-6 opacity-75" />
+        <a
+          href={getFacilityUrl(facility.code)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 hover:underline"
+        >
           {facility.name}
-        </h3>
-        <div className="text-sm text-neutral-400">
-          {Math.round(totalCapacity)} MW &middot; {facility.units.length} units
-        </div>
-      </div>
+          <ExternalLink className="h-4 w-4 opacity-50" />
+        </a>
+      </h3>
       <div className="space-y-3">
         {facility.units.map((unit) => (
           <StatusUnitStripe
