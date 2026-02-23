@@ -1,7 +1,7 @@
 import type { Facility, FacilityData } from "@/server/types"
 import { debug, debugError, debugWarn } from "@/utils/debug"
 import { TZDate } from "@date-fns/tz"
-import { OpenElectricityClient } from "@openelectricity/client"
+import { OpenElectricityClient } from "openelectricity"
 import { put } from "@vercel/blob"
 
 const client = new OpenElectricityClient()
@@ -173,7 +173,7 @@ export async function generateData(): Promise<FacilityData> {
       if (facility) {
         facility.units.push({
           code: record.unit_code,
-          capacity: record.unit_capacity,
+          capacity: Number(record.unit_capacity),
           lastSeen: record.unit_last_seen,
           status: record.unit_status,
           active: false,
