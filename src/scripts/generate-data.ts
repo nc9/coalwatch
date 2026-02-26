@@ -263,11 +263,16 @@ export async function generateData(): Promise<FacilityData> {
     return data
   } catch (error) {
     debugError("Error generating data:", error)
-    process.exit(1)
+    throw error
   }
 }
 
 // Run if called directly
 if (require.main === module) {
   generateData()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error("Data generation failed:", error)
+      process.exit(1)
+    })
 }

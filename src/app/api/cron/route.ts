@@ -2,8 +2,8 @@ import { generateData } from "@/scripts/generate-data"
 import { generateStatusData } from "@/scripts/generate-status-data"
 import { NextResponse } from "next/server"
 
-// Disable caching for this route
 export const dynamic = "force-dynamic"
+export const maxDuration = 60
 
 export async function GET(request: Request) {
   try {
