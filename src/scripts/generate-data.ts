@@ -1,4 +1,5 @@
 import type { Facility, FacilityData } from "@/server/types"
+import { ACTIVE_THRESHOLD_MW } from "@/utils/constants"
 import { debug, debugError, debugWarn } from "@/utils/debug"
 import { TZDate } from "@date-fns/tz"
 import { OpenElectricityClient } from "openelectricity"
@@ -104,19 +105,20 @@ async function getFacilityPowerData(
       {} as Record<string, { power: number; date: string }[]>
     )
 
-    // Find latest valid reading for each unit
+    // Find latest reading for each unit
     Object.entries(unitReadings).forEach(([unitCode, readings]) => {
-      // Sort by date descending
+      // Sort by date descending so the most recent reading is first
       readings.sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       )
 
-      // Take first reading with positive power
-      const validReading = readings.find((r) => r.power >= 0)
-      if (validReading) {
+      // Take the most recent reading. Negative values are auxiliary load on a
+      // unit that is not generating, so clamp them to zero for display.
+      const latestReading = readings[0]
+      if (latestReading) {
         powerByUnit.set(unitCode, {
-          power: validReading.power,
-          interval: validReading.date,
+          power: Math.max(0, latestReading.power),
+          interval: latestReading.date,
         })
       }
     })
@@ -197,13 +199,13 @@ export async function generateData(): Promise<FacilityData> {
     // Update each facility's units with power data
     for (const facility of facilities) {
       facility.units = facility.units.map((unit) => {
-        // First check if unit is active based on data_last_seen
-        const isActive = isUnitActive(unit.lastSeen, currentNetworkTime)
+        // First check if the unit's telemetry is fresh, based on data_last_seen
+        const isFresh = isUnitActive(unit.lastSeen, currentNetworkTime)
         debug(
-          `${facility.name} - ${unit.code}: Last seen ${unit.lastSeen} - ${isActive ? "ACTIVE" : "INACTIVE"}`
+          `${facility.name} - ${unit.code}: Last seen ${unit.lastSeen} - ${isFresh ? "FRESH" : "STALE"}`
         )
 
-        if (!isActive) {
+        if (!isFresh) {
           return {
             ...unit,
             active: false,
@@ -232,8 +234,13 @@ export async function generateData(): Promise<FacilityData> {
           ((data.power / unit.capacity) * 100).toFixed(2)
         )
 
+        // Fresh telemetry alone is not enough: a unit sitting at or below the
+        // threshold is offline, but it keeps its reading so the card can still
+        // show "0 / capacity MW (0%)" in the inactive styling.
+        const isGenerating = data.power > ACTIVE_THRESHOLD_MW
+
         debug(
-          `${facility.name} - ${unit.code}: Latest interval ${data.interval} (${data.power}MW)`
+          `${facility.name} - ${unit.code}: Latest interval ${data.interval} (${data.power}MW) - ${isGenerating ? "ACTIVE" : "INACTIVE"}`
         )
 
         return {
@@ -241,7 +248,7 @@ export async function generateData(): Promise<FacilityData> {
           currentPower: data.power,
           capacityFactor,
           latestInterval: data.interval,
-          active: true,
+          active: isGenerating,
         }
       })
     }

@@ -1,4 +1,5 @@
 import type { StatusData, UnitStatusInterval } from "@/server/types"
+import { ACTIVE_THRESHOLD_MW } from "@/utils/constants"
 import { debug, debugError, debugWarn } from "@/utils/debug"
 import { TZDate } from "@date-fns/tz"
 import { OpenElectricityClient } from "openelectricity"
@@ -9,7 +10,6 @@ const client = new OpenElectricityClient()
 const NETWORK_TIMEZONE = "+10:00"
 const LOOKBACK_HOURS = 48
 const BUCKET_MINUTES = 30
-const ACTIVE_THRESHOLD_MW = 5
 
 function formatDate(date: Date): string {
   const networkDate = new TZDate(date, NETWORK_TIMEZONE)

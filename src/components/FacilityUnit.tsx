@@ -33,9 +33,13 @@ export function FacilityUnit({
     return format(date, "h:mm a, d MMM yyyy")
   }
 
-  const tooltipContent = active
+  // A unit reporting at or below the active threshold is inactive but still
+  // has a reading to show
+  const hasReading = currentPower !== undefined
+
+  const tooltipContent = hasReading
     ? `Last reading: ${formatTimeString(latestInterval)}
-Generation: ${formatMW(currentPower || 0)} MW`
+Generation: ${formatMW(currentPower)} MW`
     : `Last seen: ${formatTimeString(latestInterval)}`
 
   return (
@@ -67,7 +71,7 @@ Generation: ${formatMW(currentPower || 0)} MW`
                   <span className="hidden sm:inline">{code}</span>
                 </div>
                 <div className="text-base font-bold tracking-wide">
-                  {active && currentPower !== undefined ? (
+                  {hasReading ? (
                     <div>
                       {formatMW(currentPower)} / {formatMW(capacity)}{" "}
                       <span className="text-sm font-medium opacity-75">MW</span>
