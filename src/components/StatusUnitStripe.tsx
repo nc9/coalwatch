@@ -9,6 +9,28 @@ interface StatusUnitStripeProps {
   unit: Unit
   intervals?: UnitStatusInterval[]
 }
+function getStatusColor(interval: UnitStatusInterval) {
+  // Tailwind scans this file for class names, so we can't dynamically generate them.
+  // Instead, we use a series of if statements to return the appropriate class name.
+  if (interval.power === undefined) {
+    return "bg-neutral-700"
+  } else if (!interval.active) {
+    return "bg-red-500"
+  }
+  const intensity = Number((interval.capacityFactor || 0.1) * 5)
+  if (intensity < 1) {
+    return "bg-green-100"
+  } else if (intensity < 2) {
+    return "bg-green-200"
+  } else if (intensity < 3) {
+    return "bg-green-300"
+  } else if (intensity < 4) {
+    return "bg-green-400"
+  } else if (intensity < 5) {
+    return "bg-green-500"
+  }
+  return `bg-green-600`
+}
 
 export function StatusUnitStripe({ unit, intervals }: StatusUnitStripeProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
@@ -39,7 +61,7 @@ export function StatusUnitStripe({ unit, intervals }: StatusUnitStripeProps) {
                     !hasData
                       ? "bg-neutral-700"
                       : isActive
-                        ? "bg-green-500"
+                        ? getStatusColor(interval)
                         : "bg-red-500"
                   }`}
                 />
