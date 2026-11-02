@@ -59,6 +59,8 @@ export interface FacilityData {
 export interface UnitStatusInterval {
   timestamp: string
   active: boolean
+  /** True when no unit reported in this bucket (backend/feed gap): unknown, not offline */
+  noData?: boolean
   power?: number
   capacityFactor?: number
 }

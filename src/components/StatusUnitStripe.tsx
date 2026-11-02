@@ -24,7 +24,7 @@ export function StatusUnitStripe({ unit, intervals }: StatusUnitStripeProps) {
       <div className="relative">
         <div className="flex gap-[1px]">
           {cells.map((interval, index) => {
-            const hasData = interval.power !== undefined
+            const hasData = !interval.noData && interval.power !== undefined
             const isActive = interval.active
 
             return (
@@ -51,10 +51,18 @@ export function StatusUnitStripe({ unit, intervals }: StatusUnitStripeProps) {
                       </div>
                       <div
                         className={
-                          isActive ? "text-green-400" : "text-red-400"
+                          interval.noData
+                            ? "text-neutral-400"
+                            : isActive
+                              ? "text-green-400"
+                              : "text-red-400"
                         }
                       >
-                        {isActive ? "Online" : "Offline"}
+                        {interval.noData
+                          ? "No data"
+                          : isActive
+                            ? "Online"
+                            : "Offline"}
                       </div>
                       {interval.power !== undefined && (
                         <div className="text-neutral-400">

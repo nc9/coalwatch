@@ -131,6 +131,14 @@ export async function generateStatusData(): Promise<StatusData> {
     const status: Record<string, UnitStatusInterval[]> = {}
     const expectedIntervals = (LOOKBACK_HOURS * 60) / BUCKET_MINUTES // 96
 
+    // A bucket where NO unit has any data is a feed/backend gap, not an outage
+    const bucketsWithData = new Set<string>()
+    for (const bucketMap of Object.values(buckets)) {
+      for (const [key, b] of bucketMap) {
+        if (b.count > 0) bucketsWithData.add(key)
+      }
+    }
+
     for (const [unitCode, bucketMap] of Object.entries(buckets)) {
       const capacity = unitCapacities[unitCode] || 0
       const intervals: UnitStatusInterval[] = []
@@ -154,6 +162,8 @@ export async function generateStatusData(): Promise<StatusData> {
                 ? Math.min(1, Math.max(0, avgPower / capacity))
                 : undefined,
           })
+        } else if (!bucketsWithData.has(key)) {
+          intervals.push({ timestamp: key, active: false, noData: true })
         } else {
           intervals.push({
             timestamp: key,
