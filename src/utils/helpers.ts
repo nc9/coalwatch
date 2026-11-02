@@ -5,6 +5,19 @@ export function isUnitActive(lastSeen: Date): boolean {
   return lastSeen > oneHourAgo
 }
 
+/**
+ * True when no unit has reported within the last hour: the feed itself is
+ * delayed (backend/ingest problem), which says nothing about the grid.
+ */
+export function isFeedDelayed(
+  units: { lastSeen: string }[],
+  now: Date = new Date()
+): boolean {
+  const newest = Math.max(...units.map((u) => new Date(u.lastSeen).getTime()))
+  if (!Number.isFinite(newest)) return false
+  return newest <= now.getTime() - 60 * 60 * 1000
+}
+
 export function calculateRegionStats(
   facilities: Facility[],
   dataDelayed = false

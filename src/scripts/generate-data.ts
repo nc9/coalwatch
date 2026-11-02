@@ -1,5 +1,6 @@
 import type { Facility, FacilityData } from "@/server/types"
 import { ACTIVE_THRESHOLD_MW } from "@/utils/constants"
+import { isFeedDelayed } from "@/utils/helpers"
 import { debug, debugError, debugWarn } from "@/utils/debug"
 import { TZDate } from "@date-fns/tz"
 import { OpenElectricityClient } from "openelectricity"
@@ -196,14 +197,11 @@ export async function generateData(): Promise<FacilityData> {
     // If no unit anywhere has reported recently the feed itself is delayed
     // (backend/ingest problem), which says nothing about the grid. Treat the
     // last known readings as current instead of marking every unit down.
+    const allUnits = facilities.flatMap((f) => f.units)
     const newestLastSeen = Math.max(
-      ...facilities.flatMap((f) =>
-        f.units.map((u) => new Date(u.lastSeen).getTime())
-      )
+      ...allUnits.map((u) => new Date(u.lastSeen).getTime())
     )
-    const dataDelayed =
-      Number.isFinite(newestLastSeen) &&
-      !isUnitActive(new Date(newestLastSeen).toISOString(), currentNetworkTime)
+    const dataDelayed = isFeedDelayed(allUnits, currentNetworkTime)
     if (dataDelayed) {
       debugWarn(
         `Feed delayed: newest lastSeen ${new Date(newestLastSeen).toISOString()}, showing last known readings`
