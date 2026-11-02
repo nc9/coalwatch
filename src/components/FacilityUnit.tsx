@@ -48,18 +48,18 @@ Generation: ${formatMW(currentPower)} MW`
         <Tooltip.Trigger asChild>
           <div className="relative">
             <div
-              className={`relative flex min-h-[160px] w-full flex-col justify-between overflow-hidden rounded-xl p-4 ${
+              className={`relative flex min-h-[160px] w-full flex-col justify-between overflow-hidden rounded-lg p-3 sm:p-4 ${
                 active
-                  ? "bg-green-950 text-green-100"
-                  : "border border-red-900 bg-red-950 text-red-200"
-              } shadow-lg backdrop-blur-sm transition-all duration-200`}
+                  ? "border border-green-900/50 bg-green-950 text-green-100"
+                  : "border border-red-900/70 bg-red-950 text-red-200"
+              } transition-colors duration-200`}
             >
               {/* Power level fill */}
               {active && capacityFactor !== undefined && (
                 <div
-                  className="absolute bottom-0 left-0 right-0 bg-green-900 transition-all duration-300"
+                  className="absolute inset-0 origin-bottom bg-green-900 transition-transform duration-300 motion-reduce:transition-none"
                   style={{
-                    height: `${Math.min(100, capacityFactor)}%`,
+                    transform: `scaleY(${Math.min(100, capacityFactor) / 100})`,
                   }}
                 />
               )}
@@ -70,7 +70,7 @@ Generation: ${formatMW(currentPower)} MW`
                   <span className="sm:hidden">{formatUnitCode(code)}</span>
                   <span className="hidden sm:inline">{code}</span>
                 </div>
-                <div className="text-base font-bold tracking-wide">
+                <div className="text-base font-semibold">
                   {hasReading ? (
                     <div>
                       {formatMW(currentPower)} / {formatMW(capacity)}{" "}
