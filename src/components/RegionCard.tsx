@@ -8,10 +8,15 @@ import { Power, Zap, Battery } from "lucide-react"
 interface RegionCardProps {
   region: string
   facilities: Facility[]
+  dataDelayed?: boolean
 }
 
-export function RegionCard({ region, facilities }: RegionCardProps) {
-  const stats = calculateRegionStats(facilities)
+export function RegionCard({
+  region,
+  facilities,
+  dataDelayed = false,
+}: RegionCardProps) {
+  const stats = calculateRegionStats(facilities, dataDelayed)
 
   return (
     <div className="transform-gpu rounded-2xl border border-neutral-700 bg-neutral-800/90 p-8 shadow-xl backdrop-blur-[2px]">

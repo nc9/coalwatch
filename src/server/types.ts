@@ -50,6 +50,10 @@ export interface Facility {
 export interface FacilityData {
   facilities: Facility[]
   lastUpdated: string
+  /** Newest telemetry timestamp across all units (network time) */
+  dataAsOf?: string
+  /** True when the whole feed is stale: an upstream/backend delay, not a grid outage */
+  dataDelayed?: boolean
 }
 
 export interface UnitStatusInterval {

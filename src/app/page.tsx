@@ -26,7 +26,12 @@ async function getFacilityData(): Promise<FacilityData> {
 }
 
 export default async function Home() {
-  const { facilities, lastUpdated } = await getFacilityData()
+  const { facilities, lastUpdated, dataAsOf, dataDelayed } =
+    await getFacilityData()
+  // Also treat a blob that stopped regenerating as delayed
+  const delayed =
+    dataDelayed === true ||
+    Date.now() - new Date(lastUpdated).getTime() > 2 * 60 * 60 * 1000
 
   // Group facilities by region
   const facilitiesByRegion = new Map<string, Facility[]>()
@@ -74,12 +79,25 @@ export default async function Home() {
               addSuffix: true,
             })}
           </div>
+          {delayed && (
+            <div
+              role="status"
+              className="mx-auto mb-12 max-w-2xl rounded-xl border border-amber-800 bg-amber-950/60 px-5 py-4 text-center text-sm text-amber-200"
+            >
+              Data delayed. Showing last known readings
+              {dataAsOf
+                ? ` from ${formatDistanceToNow(new Date(dataAsOf), { addSuffix: true })}`
+                : ""}
+              . This is a data feed delay, not a grid outage.
+            </div>
+          )}
           <div className="space-y-16">
             {sortedRegions.map(([region, facilities]) => (
               <RegionCard
                 key={region}
                 region={region}
                 facilities={facilities}
+                dataDelayed={delayed}
               />
             ))}
           </div>

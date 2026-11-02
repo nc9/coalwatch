@@ -5,7 +5,10 @@ export function isUnitActive(lastSeen: Date): boolean {
   return lastSeen > oneHourAgo
 }
 
-export function calculateRegionStats(facilities: Facility[]) {
+export function calculateRegionStats(
+  facilities: Facility[],
+  dataDelayed = false
+) {
   let totalCapacity = 0
   let operationalCapacity = 0
   let currentPower = 0
@@ -13,7 +16,7 @@ export function calculateRegionStats(facilities: Facility[]) {
   facilities.forEach((facility) => {
     facility.units.forEach((unit) => {
       totalCapacity += unit.capacity
-      if (isUnitActive(new Date(unit.lastSeen))) {
+      if (dataDelayed || isUnitActive(new Date(unit.lastSeen))) {
         operationalCapacity += unit.capacity
         if (unit.currentPower !== undefined) {
           currentPower += unit.currentPower

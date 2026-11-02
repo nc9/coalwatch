@@ -193,6 +193,23 @@ export async function generateData(): Promise<FacilityData> {
 
     debug(`Current network time: ${currentNetworkTime.toISOString()}`)
 
+    // If no unit anywhere has reported recently the feed itself is delayed
+    // (backend/ingest problem), which says nothing about the grid. Treat the
+    // last known readings as current instead of marking every unit down.
+    const newestLastSeen = Math.max(
+      ...facilities.flatMap((f) =>
+        f.units.map((u) => new Date(u.lastSeen).getTime())
+      )
+    )
+    const dataDelayed =
+      Number.isFinite(newestLastSeen) &&
+      !isUnitActive(new Date(newestLastSeen).toISOString(), currentNetworkTime)
+    if (dataDelayed) {
+      debugWarn(
+        `Feed delayed: newest lastSeen ${new Date(newestLastSeen).toISOString()}, showing last known readings`
+      )
+    }
+
     // Fetch power data for all facilities in one request
     const powerData = await getFacilityPowerData(facilityCodes, lastSeenDates)
 
@@ -200,7 +217,7 @@ export async function generateData(): Promise<FacilityData> {
     for (const facility of facilities) {
       facility.units = facility.units.map((unit) => {
         // First check if the unit's telemetry is fresh, based on data_last_seen
-        const isFresh = isUnitActive(unit.lastSeen, currentNetworkTime)
+        const isFresh = dataDelayed || isUnitActive(unit.lastSeen, currentNetworkTime)
         debug(
           `${facility.name} - ${unit.code}: Last seen ${unit.lastSeen} - ${isFresh ? "FRESH" : "STALE"}`
         )
@@ -256,6 +273,10 @@ export async function generateData(): Promise<FacilityData> {
     const data: FacilityData = {
       facilities,
       lastUpdated: new Date().toISOString(),
+      dataAsOf: Number.isFinite(newestLastSeen)
+        ? new Date(newestLastSeen).toISOString()
+        : undefined,
+      dataDelayed,
     }
 
     // Store the data in Vercel Blob
