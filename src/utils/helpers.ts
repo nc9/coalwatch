@@ -52,3 +52,42 @@ export function calculateRegionStats(
     operatingCapacityPercentage,
   }
 }
+
+/**
+ * Whole-grid summary across NEM and WEM. A network whose feed is delayed keeps
+ * its last known readings, same as the region cards.
+ */
+export function calculateNetworkSummary(
+  facilities: Facility[],
+  isDelayed: (region: string) => boolean = () => false
+) {
+  let unitsLive = 0
+  let unitsDown = 0
+  let currentPower = 0
+  let totalCapacity = 0
+
+  facilities.forEach((facility) => {
+    const delayed = isDelayed(facility.region)
+    facility.units.forEach((unit) => {
+      totalCapacity += unit.capacity
+      if (unit.active) unitsLive += 1
+      else unitsDown += 1
+      if (
+        (delayed || isUnitActive(new Date(unit.lastSeen))) &&
+        unit.currentPower !== undefined
+      ) {
+        currentPower += unit.currentPower
+      }
+    })
+  })
+
+  return {
+    unitsLive,
+    unitsDown,
+    unitsTotal: unitsLive + unitsDown,
+    currentPower: Math.round(currentPower),
+    totalCapacity: Math.round(totalCapacity),
+    percentage:
+      totalCapacity > 0 ? Math.round((currentPower / totalCapacity) * 100) : 0,
+  }
+}

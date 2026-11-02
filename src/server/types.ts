@@ -54,6 +54,8 @@ export interface FacilityData {
   dataAsOf?: string
   /** True when the whole feed is stale: an upstream/backend delay, not a grid outage */
   dataDelayed?: boolean
+  /** Networks (NEM, WEM) whose feed is delayed */
+  delayedNetworks?: string[]
 }
 
 export interface UnitStatusInterval {

@@ -1,6 +1,7 @@
-import { regionOrder } from "@/utils/format"
+import { networkOfRegion, regionOrder } from "@/utils/format"
 import Image from "next/image"
 import { Footer } from "@/components/Footer"
+import { NetworkSummary } from "@/components/NetworkSummary"
 import { RegionCard } from "@/components/RegionCard"
 import { ViewTabs } from "@/components/ViewTabs"
 import type { Facility, FacilityData } from "@/server/types"
@@ -26,12 +27,21 @@ async function getFacilityData(): Promise<FacilityData> {
 }
 
 export default async function Home() {
-  const { facilities, lastUpdated, dataAsOf, dataDelayed } =
+  const { facilities, lastUpdated, dataAsOf, dataDelayed, delayedNetworks } =
     await getFacilityData()
-  // Also treat a blob that stopped regenerating as delayed
-  const delayed =
-    dataDelayed === true ||
+  // A blob that stopped regenerating means every network is delayed
+  const blobStale =
     Date.now() - new Date(lastUpdated).getTime() > 2 * 60 * 60 * 1000
+  const delayedSet = new Set(
+    blobStale || (dataDelayed === true && !delayedNetworks)
+      ? ["NEM", "WEM"]
+      : (delayedNetworks ?? [])
+  )
+  const isRegionDelayed = (region: string) =>
+    delayedSet.has(networkOfRegion(region))
+  const delayed = delayedSet.size > 0
+  const delayedLabel =
+    delayedSet.size === 2 ? "" : ` for the ${Array.from(delayedSet).join(", ")}`
 
   // Group facilities by region
   const facilitiesByRegion = new Map<string, Facility[]>()
@@ -71,7 +81,7 @@ export default async function Home() {
 
       {/* Main content */}
       <div className="relative bg-black">
-        <div className="mx-auto max-w-[1400px] px-6 py-12 sm:px-8">
+        <div className="mx-auto max-w-[1400px] px-3 py-12 sm:px-8">
           <ViewTabs />
           <div className="mb-12 text-center text-sm text-neutral-400 will-change-transform">
             Last updated{" "}
@@ -79,12 +89,13 @@ export default async function Home() {
               addSuffix: true,
             })}
           </div>
+          <NetworkSummary facilities={facilities} isDelayed={isRegionDelayed} />
           {delayed && (
             <div
               role="status"
               className="mx-auto mb-12 max-w-2xl rounded-xl border border-amber-800 bg-amber-950/60 px-5 py-4 text-center text-sm text-amber-200"
             >
-              Data delayed. Showing last known readings
+              Data delayed{delayedLabel}. Showing last known readings
               {dataAsOf
                 ? ` from ${formatDistanceToNow(new Date(dataAsOf), { addSuffix: true })}`
                 : ""}
@@ -97,7 +108,7 @@ export default async function Home() {
                 key={region}
                 region={region}
                 facilities={facilities}
-                dataDelayed={delayed}
+                dataDelayed={isRegionDelayed(region)}
               />
             ))}
           </div>

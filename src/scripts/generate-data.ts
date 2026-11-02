@@ -5,11 +5,17 @@ import { debug, debugError, debugWarn } from "@/utils/debug"
 import { TZDate } from "@date-fns/tz"
 import { OpenElectricityClient } from "openelectricity"
 import { put } from "@vercel/blob"
+import { writeFileSync } from "node:fs"
 
 const client = new OpenElectricityClient()
 
-// Network timezone (Brisbane has no daylight savings and is effectively +10)
-const NETWORK_TIMEZONE = "+10:00"
+type NetworkId = "NEM" | "WEM"
+
+// Network timezones: NEM is Brisbane time (+10, no DST), WEM is Perth (+8)
+const NETWORKS: { id: NetworkId; timezone: string }[] = [
+  { id: "NEM", timezone: "+10:00" },
+  { id: "WEM", timezone: "+08:00" },
+]
 
 /**
  * Check if a unit is active based on its last seen time
@@ -28,25 +34,18 @@ function isUnitActive(lastSeen: string, currentNetworkTime: Date): boolean {
 /**
  * Format date as timezone-naive (YYYY-MM-DDTHH:mm:ss) in network time
  */
-function formatDate(date: Date): string {
+function formatDate(date: Date, timezone: string): string {
   // Convert to network time first
-  const networkDate = new TZDate(date, NETWORK_TIMEZONE)
+  const networkDate = new TZDate(date, timezone)
   return networkDate.toISOString().split(".")[0] // Remove milliseconds and timezone
-}
-
-/**
- * Get current network time
- */
-function getCurrentNetworkTime(): Date {
-  const now = new Date()
-  const networkDate = new TZDate(now, NETWORK_TIMEZONE)
-  return networkDate
 }
 
 /**
  * Fetches power data for all facilities
  */
 async function getFacilityPowerData(
+  network: NetworkId,
+  timezone: string,
   facilityCodes: string[],
   lastSeenDates: Map<string, string>
 ) {
@@ -60,16 +59,16 @@ async function getFacilityPowerData(
     const firstInterval = new Date(latestLastSeen.getTime() - 60 * 60 * 1000) // One hour before
 
     debug(
-      `Fetching power data for ${facilityCodes.length} facilities from ${formatDate(firstInterval)} to ${formatDate(latestLastSeen)}`
+      `Fetching power data for ${facilityCodes.length} facilities from ${formatDate(firstInterval, timezone)} to ${formatDate(latestLastSeen, timezone)}`
     )
 
     const { datatable } = await client.getFacilityData(
-      "NEM",
+      network,
       facilityCodes,
       ["power"],
       {
         interval: "5m",
-        dateStart: formatDate(firstInterval),
+        dateStart: formatDate(firstInterval, timezone),
       }
     )
 
@@ -133,140 +132,178 @@ async function getFacilityPowerData(
 }
 
 /**
- * Generates complete facility data including power outputs
+ * Builds facilities (units, power, active state) for one network
+ */
+async function generateNetworkData(network: NetworkId, timezone: string) {
+  debug(`Fetching ${network} facility list...`)
+  const facilityResponse = await client.getFacilities({
+    network_id: [network],
+    status_id: ["operating"],
+    fueltech_id: ["coal_black", "coal_brown"],
+  })
+
+  const records = facilityResponse.table.getRecords()
+  debug(`Found ${records.length} ${network} facility records`)
+  const facilitiesMap = new Map<string, Facility>()
+  const lastSeenDates = new Map<string, string>()
+
+  // First pass: create facilities with units
+  records.forEach((record) => {
+    if (
+      record.unit_capacity === null ||
+      record.unit_last_seen === null ||
+      record.unit_status === null ||
+      record.unit_code === null
+    ) {
+      debugWarn(`Skipping record with null values:`, record)
+      return
+    }
+
+    if (!facilitiesMap.has(record.facility_code)) {
+      facilitiesMap.set(record.facility_code, {
+        name: record.facility_name,
+        code: record.facility_code,
+        region: record.facility_region,
+        units: [],
+        lastUpdated: new Date().toISOString(),
+      })
+    }
+
+    const facility = facilitiesMap.get(record.facility_code)
+    if (facility) {
+      facility.units.push({
+        code: record.unit_code,
+        capacity: Number(record.unit_capacity),
+        lastSeen: record.unit_last_seen,
+        status: record.unit_status,
+        active: false,
+      })
+      lastSeenDates.set(record.facility_code, record.unit_last_seen)
+    }
+  })
+
+  const facilities = Array.from(facilitiesMap.values())
+  if (facilities.length === 0) {
+    return { facilities, newestLastSeen: NaN, delayed: false }
+  }
+  const facilityCodes = facilities.map((f) => f.code)
+
+  // Freshness is an absolute-time comparison, so the timezone only matters
+  // for the query window
+  const currentNetworkTime = new Date()
+
+  // If no unit in this network has reported recently the feed itself is
+  // delayed (backend/ingest problem), which says nothing about the grid. Treat
+  // the last known readings as current instead of marking every unit down.
+  const allUnits = facilities.flatMap((f) => f.units)
+  const newestLastSeen = Math.max(
+    ...allUnits.map((u) => new Date(u.lastSeen).getTime())
+  )
+  const delayed = isFeedDelayed(allUnits, currentNetworkTime)
+  if (delayed) {
+    debugWarn(
+      `${network} feed delayed: newest lastSeen ${new Date(newestLastSeen).toISOString()}, showing last known readings`
+    )
+  }
+
+  // Fetch power data for all of the network's facilities in one request
+  const powerData = await getFacilityPowerData(
+    network,
+    timezone,
+    facilityCodes,
+    lastSeenDates
+  )
+
+  // Update each facility's units with power data
+  for (const facility of facilities) {
+    facility.units = facility.units.map((unit) => {
+      // First check if the unit's telemetry is fresh, based on data_last_seen
+      const isFresh = delayed || isUnitActive(unit.lastSeen, currentNetworkTime)
+      debug(
+        `${facility.name} - ${unit.code}: Last seen ${unit.lastSeen} - ${isFresh ? "FRESH" : "STALE"}`
+      )
+
+      if (!isFresh) {
+        return {
+          ...unit,
+          active: false,
+          latestInterval: unit.lastSeen, // Use lastSeen as latestInterval for inactive units
+        }
+      }
+
+      const data = powerData.get(unit.code)
+      if (!data) {
+        debug(`${facility.name} - ${unit.code}: No current power data`)
+        return {
+          ...unit,
+          active: false,
+          latestInterval: unit.lastSeen, // Use lastSeen as latestInterval when no power data
+        }
+      }
+
+      // Warn about excessive power but still show the reading
+      if (data.power > unit.capacity) {
+        debugWarn(
+          `Power reading ${data.power}MW exceeds capacity ${unit.capacity}MW for unit ${unit.code} in ${facility.name}`
+        )
+      }
+
+      const capacityFactor = Number(
+        ((data.power / unit.capacity) * 100).toFixed(2)
+      )
+
+      // Fresh telemetry alone is not enough: a unit sitting at or below the
+      // threshold is offline, but it keeps its reading so the card can still
+      // show "0 / capacity MW (0%)" in the inactive styling.
+      const isGenerating = data.power > ACTIVE_THRESHOLD_MW
+
+      debug(
+        `${facility.name} - ${unit.code}: Latest interval ${data.interval} (${data.power}MW) - ${isGenerating ? "ACTIVE" : "INACTIVE"}`
+      )
+
+      return {
+        ...unit,
+        currentPower: data.power,
+        capacityFactor,
+        latestInterval: data.interval,
+        active: isGenerating,
+      }
+    })
+  }
+
+  return { facilities, newestLastSeen, delayed }
+}
+
+/**
+ * Generates complete facility data including power outputs, for NEM and WEM
  */
 export async function generateData(): Promise<FacilityData> {
   try {
-    // Get all facilities
-    debug("Fetching facility list...")
-    const facilityResponse = await client.getFacilities({
-      network_id: ["NEM"],
-      status_id: ["operating"],
-      fueltech_id: ["coal_black", "coal_brown"],
-    })
-
-    const records = facilityResponse.table.getRecords()
-    debug(`Found ${records.length} facility records`)
-    const facilitiesMap = new Map<string, Facility>()
-    const lastSeenDates = new Map<string, string>()
-
-    // First pass: create facilities with units
-    records.forEach((record) => {
-      if (
-        record.unit_capacity === null ||
-        record.unit_last_seen === null ||
-        record.unit_status === null ||
-        record.unit_code === null
-      ) {
-        debugWarn(`Skipping record with null values:`, record)
-        return
-      }
-
-      if (!facilitiesMap.has(record.facility_code)) {
-        facilitiesMap.set(record.facility_code, {
-          name: record.facility_name,
-          code: record.facility_code,
-          region: record.facility_region,
-          units: [],
-          lastUpdated: new Date().toISOString(),
-        })
-      }
-
-      const facility = facilitiesMap.get(record.facility_code)
-      if (facility) {
-        facility.units.push({
-          code: record.unit_code,
-          capacity: Number(record.unit_capacity),
-          lastSeen: record.unit_last_seen,
-          status: record.unit_status,
-          active: false,
-        })
-        lastSeenDates.set(record.facility_code, record.unit_last_seen)
-      }
-    })
-
-    // Second pass: fetch and add power data for all facilities at once
-    const facilities = Array.from(facilitiesMap.values())
-    const facilityCodes = facilities.map((f) => f.code)
-
-    // Get current network time to check if units are active
-    const currentNetworkTime = getCurrentNetworkTime()
-
-    debug(`Current network time: ${currentNetworkTime.toISOString()}`)
-
-    // If no unit anywhere has reported recently the feed itself is delayed
-    // (backend/ingest problem), which says nothing about the grid. Treat the
-    // last known readings as current instead of marking every unit down.
-    const allUnits = facilities.flatMap((f) => f.units)
-    const newestLastSeen = Math.max(
-      ...allUnits.map((u) => new Date(u.lastSeen).getTime())
-    )
-    const dataDelayed = isFeedDelayed(allUnits, currentNetworkTime)
-    if (dataDelayed) {
-      debugWarn(
-        `Feed delayed: newest lastSeen ${new Date(newestLastSeen).toISOString()}, showing last known readings`
-      )
-    }
-
-    // Fetch power data for all facilities in one request
-    const powerData = await getFacilityPowerData(facilityCodes, lastSeenDates)
-
-    // Update each facility's units with power data
-    for (const facility of facilities) {
-      facility.units = facility.units.map((unit) => {
-        // First check if the unit's telemetry is fresh, based on data_last_seen
-        const isFresh = dataDelayed || isUnitActive(unit.lastSeen, currentNetworkTime)
-        debug(
-          `${facility.name} - ${unit.code}: Last seen ${unit.lastSeen} - ${isFresh ? "FRESH" : "STALE"}`
-        )
-
-        if (!isFresh) {
-          return {
-            ...unit,
-            active: false,
-            latestInterval: unit.lastSeen, // Use lastSeen as latestInterval for inactive units
-          }
-        }
-
-        const data = powerData.get(unit.code)
-        if (!data) {
-          debug(`${facility.name} - ${unit.code}: No current power data`)
-          return {
-            ...unit,
-            active: false,
-            latestInterval: unit.lastSeen, // Use lastSeen as latestInterval when no power data
-          }
-        }
-
-        // Warn about excessive power but still show the reading
-        if (data.power > unit.capacity) {
-          debugWarn(
-            `Power reading ${data.power}MW exceeds capacity ${unit.capacity}MW for unit ${unit.code} in ${facility.name}`
-          )
-        }
-
-        const capacityFactor = Number(
-          ((data.power / unit.capacity) * 100).toFixed(2)
-        )
-
-        // Fresh telemetry alone is not enough: a unit sitting at or below the
-        // threshold is offline, but it keeps its reading so the card can still
-        // show "0 / capacity MW (0%)" in the inactive styling.
-        const isGenerating = data.power > ACTIVE_THRESHOLD_MW
-
-        debug(
-          `${facility.name} - ${unit.code}: Latest interval ${data.interval} (${data.power}MW) - ${isGenerating ? "ACTIVE" : "INACTIVE"}`
-        )
-
-        return {
-          ...unit,
-          currentPower: data.power,
-          capacityFactor,
-          latestInterval: data.interval,
-          active: isGenerating,
+    // A failed network must not take the other one down with it
+    const results = await Promise.all(
+      NETWORKS.map(async ({ id, timezone }) => {
+        try {
+          return { id, ...(await generateNetworkData(id, timezone)) }
+        } catch (error) {
+          debugError(`Error generating ${id} data:`, error)
+          if (id === "NEM") throw error
+          return { id, facilities: [], newestLastSeen: NaN, delayed: false }
         }
       })
-    }
+    )
+
+    const facilities = results.flatMap((r) => r.facilities)
+    const delayedNetworks = results.filter((r) => r.delayed).map((r) => r.id)
+    const dataDelayed = results.every(
+      (r) => r.delayed || r.facilities.length === 0
+    )
+    // When a network is delayed, report its newest reading as the as-of time
+    const asOfCandidates = results
+      .filter((r) => r.delayed && Number.isFinite(r.newestLastSeen))
+      .map((r) => r.newestLastSeen)
+    const newestLastSeen = asOfCandidates.length
+      ? Math.min(...asOfCandidates)
+      : NaN
 
     const data: FacilityData = {
       facilities,
@@ -275,10 +312,18 @@ export async function generateData(): Promise<FacilityData> {
         ? new Date(newestLastSeen).toISOString()
         : undefined,
       dataDelayed,
+      delayedNetworks,
     }
 
     // Store the data in Vercel Blob
     const jsonString = JSON.stringify(data, null, 2)
+
+    // Local preview: write to a file instead of the production blob
+    if (process.env.DRY_RUN_OUT) {
+      writeFileSync(process.env.DRY_RUN_OUT, jsonString)
+      debug(`Dry run: wrote ${process.env.DRY_RUN_OUT}`)
+      return data
+    }
     const { url } = await put("data/facilities.json", jsonString, {
       access: "public",
       contentType: "application/json",

@@ -11,10 +11,11 @@ export const regionNames: Record<string, string> = {
   SA1: "South Australia",
   TAS1: "Tasmania",
   VIC1: "Victoria",
+  WEM: "Western Australia",
 }
 
 // Order for regions
-export const regionOrder = ["NSW1", "QLD1", "VIC1", "SA1", "TAS1"]
+export const regionOrder = ["NSW1", "QLD1", "VIC1", "SA1", "TAS1", "WEM"]
 
 // Colors for regions
 export const regionColors: Record<string, string> = {
@@ -23,6 +24,12 @@ export const regionColors: Record<string, string> = {
   VIC1: "bg-indigo-900",
   SA1: "bg-orange-900",
   TAS1: "bg-green-900",
+  WEM: "bg-yellow-900",
+}
+
+/** The WEM is its own region and network; everything else is NEM */
+export function networkOfRegion(region: string): "NEM" | "WEM" {
+  return region === "WEM" ? "WEM" : "NEM"
 }
 
 export function formatLastSeen(date: Date): string {

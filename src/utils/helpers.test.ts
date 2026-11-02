@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { Facility } from "@/server/types";
-import { calculateRegionStats, isFeedDelayed } from "./helpers";
+import {
+  calculateNetworkSummary,
+  calculateRegionStats,
+  isFeedDelayed,
+} from "./helpers";
 
 const now = new Date();
 const hoursAgo = (h: number) => new Date(now.getTime() - h * 3600_000).toISOString();
@@ -47,5 +51,46 @@ describe("calculateRegionStats with delayed feed", () => {
   });
   test("zeroes without flag", () => {
     expect(calculateRegionStats(facilities, false).currentPower).toBe(0);
+  });
+});
+
+describe("calculateNetworkSummary", () => {
+  const unit = (
+    code: string,
+    capacity: number,
+    currentPower: number,
+    active: boolean,
+  ) => ({
+    code,
+    capacity,
+    lastSeen: new Date().toISOString(),
+    status: "operating",
+    currentPower,
+    active,
+  });
+  const facilities: Facility[] = [
+    {
+      name: "A",
+      code: "A",
+      region: "NSW1",
+      lastUpdated: "",
+      units: [unit("A1", 600, 400, true), unit("A2", 600, 0, false)],
+    },
+    {
+      name: "B",
+      code: "B",
+      region: "WEM",
+      lastUpdated: "",
+      units: [unit("B1", 200, 150, true)],
+    },
+  ];
+
+  test("counts live and down units across networks", () => {
+    const s = calculateNetworkSummary(facilities);
+    expect(s.unitsLive).toBe(2);
+    expect(s.unitsDown).toBe(1);
+    expect(s.currentPower).toBe(550);
+    expect(s.totalCapacity).toBe(1400);
+    expect(s.percentage).toBe(39);
   });
 });

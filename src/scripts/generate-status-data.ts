@@ -4,15 +4,19 @@ import { debug, debugError, debugWarn } from "@/utils/debug"
 import { TZDate } from "@date-fns/tz"
 import { OpenElectricityClient } from "openelectricity"
 import { put } from "@vercel/blob"
+import { writeFileSync } from "node:fs"
 
 const client = new OpenElectricityClient()
 
-const NETWORK_TIMEZONE = "+10:00"
+const NETWORKS: { id: "NEM" | "WEM"; timezone: string }[] = [
+  { id: "NEM", timezone: "+10:00" },
+  { id: "WEM", timezone: "+08:00" },
+]
 const LOOKBACK_HOURS = 48
 const BUCKET_MINUTES = 30
 
-function formatDate(date: Date): string {
-  const networkDate = new TZDate(date, NETWORK_TIMEZONE)
+function formatDate(date: Date, timezone: string): string {
+  const networkDate = new TZDate(date, timezone)
   return networkDate.toISOString().split(".")[0]
 }
 
@@ -27,35 +31,38 @@ export async function generateStatusData(): Promise<StatusData> {
   try {
     debug("Starting status data generation...")
 
-    const facilityResponse = await client.getFacilities({
-      network_id: ["NEM"],
-      status_id: ["operating"],
-      fueltech_id: ["coal_black", "coal_brown"],
-    })
-
-    const records = facilityResponse.table.getRecords()
-    debug(`Found ${records.length} facility records`)
-
-    const facilityCodes = new Set<string>()
+    const facilityCodesByNetwork = new Map<string, Set<string>>()
     const unitCapacities: Record<string, number> = {}
+    const unitNetwork: Record<string, string> = {}
 
-    for (const record of records) {
-      if (record.facility_code) facilityCodes.add(record.facility_code)
-      if (record.unit_code && record.unit_capacity) {
-        unitCapacities[record.unit_code] = record.unit_capacity
+    for (const { id } of NETWORKS) {
+      const facilityResponse = await client.getFacilities({
+        network_id: [id],
+        status_id: ["operating"],
+        fueltech_id: ["coal_black", "coal_brown"],
+      })
+
+      const records = facilityResponse.table.getRecords()
+      debug(`Found ${records.length} ${id} facility records`)
+
+      const codes = new Set<string>()
+      for (const record of records) {
+        if (record.facility_code) codes.add(record.facility_code)
+        if (record.unit_code && record.unit_capacity) {
+          unitCapacities[record.unit_code] = record.unit_capacity
+          unitNetwork[record.unit_code] = id
+        }
       }
+      facilityCodesByNetwork.set(id, codes)
+      debug(`Found ${codes.size} ${id} facilities`)
     }
-
-    debug(`Found ${facilityCodes.size} facilities`)
 
     const now = new Date()
     const endDate = now
-    const startDate = new Date(
-      now.getTime() - LOOKBACK_HOURS * 60 * 60 * 1000
-    )
+    const startDate = new Date(now.getTime() - LOOKBACK_HOURS * 60 * 60 * 1000)
 
     debug(
-      `Fetching data from ${formatDate(startDate)} to ${formatDate(endDate)}`
+      `Fetching data from ${startDate.toISOString()} to ${endDate.toISOString()}`
     )
 
     // Fetch in 2 x 24h chunks to be safe
@@ -68,29 +75,36 @@ export async function generateStatusData(): Promise<StatusData> {
         Math.min(currentStart.getTime() + chunkMs, endDate.getTime())
       )
 
-      debug(
-        `Fetching chunk from ${formatDate(currentStart)} to ${formatDate(currentEnd)}`
-      )
+      for (const { id, timezone } of NETWORKS) {
+        const codes = facilityCodesByNetwork.get(id)
+        if (!codes || codes.size === 0) continue
 
-      try {
-        const { datatable } = await client.getFacilityData(
-          "NEM",
-          Array.from(facilityCodes),
-          ["power"],
-          {
-            interval: "5m",
-            dateStart: formatDate(currentStart),
-            dateEnd: formatDate(currentEnd),
-          }
+        debug(
+          `Fetching ${id} chunk from ${formatDate(currentStart, timezone)} to ${formatDate(currentEnd, timezone)}`
         )
 
-        if (datatable) {
-          const rows = datatable.getRows()
-          debug(`Got ${rows.length} rows for this chunk`)
-          allRows.push(...rows)
+        try {
+          const { datatable } = await client.getFacilityData(
+            id,
+            Array.from(codes),
+            ["power"],
+            {
+              interval: "5m",
+              dateStart: formatDate(currentStart, timezone),
+              dateEnd: formatDate(currentEnd, timezone),
+            }
+          )
+
+          if (datatable) {
+            const rows = datatable.getRows()
+            debug(`Got ${rows.length} ${id} rows for this chunk`)
+            allRows.push(...rows)
+          }
+        } catch (chunkError: unknown) {
+          debugWarn(
+            `Failed to fetch ${id} chunk: ${chunkError instanceof Error ? chunkError.message : chunkError}`
+          )
         }
-      } catch (chunkError: unknown) {
-        debugWarn(`Failed to fetch chunk: ${chunkError instanceof Error ? chunkError.message : chunkError}`)
       }
 
       currentStart = new Date(currentEnd.getTime() + 60 * 1000)
@@ -131,11 +145,14 @@ export async function generateStatusData(): Promise<StatusData> {
     const status: Record<string, UnitStatusInterval[]> = {}
     const expectedIntervals = (LOOKBACK_HOURS * 60) / BUCKET_MINUTES // 96
 
-    // A bucket where NO unit has any data is a feed/backend gap, not an outage
-    const bucketsWithData = new Set<string>()
-    for (const bucketMap of Object.values(buckets)) {
+    // A bucket where NO unit in a network has any data is a feed/backend gap
+    // for that network, not an outage
+    const bucketsWithData: Record<string, Set<string>> = {}
+    for (const [unitCode, bucketMap] of Object.entries(buckets)) {
+      const network = unitNetwork[unitCode] ?? "NEM"
+      bucketsWithData[network] ??= new Set<string>()
       for (const [key, b] of bucketMap) {
-        if (b.count > 0) bucketsWithData.add(key)
+        if (b.count > 0) bucketsWithData[network].add(key)
       }
     }
 
@@ -162,7 +179,7 @@ export async function generateStatusData(): Promise<StatusData> {
                 ? Math.min(1, Math.max(0, avgPower / capacity))
                 : undefined,
           })
-        } else if (!bucketsWithData.has(key)) {
+        } else if (!bucketsWithData[unitNetwork[unitCode] ?? "NEM"]?.has(key)) {
           intervals.push({ timestamp: key, active: false, noData: true })
         } else {
           intervals.push({
@@ -184,6 +201,13 @@ export async function generateStatusData(): Promise<StatusData> {
     }
 
     const jsonString = JSON.stringify(statusData, null, 2)
+
+    // Local preview: write to a file instead of the production blob
+    if (process.env.DRY_RUN_OUT) {
+      writeFileSync(process.env.DRY_RUN_OUT, jsonString)
+      debug(`Dry run: wrote ${process.env.DRY_RUN_OUT}`)
+      return statusData
+    }
     const { url } = await put("data/status.json", jsonString, {
       access: "public",
       contentType: "application/json",
