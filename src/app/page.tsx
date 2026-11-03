@@ -4,27 +4,12 @@ import { Footer } from "@/components/Footer"
 import { NetworkSummary } from "@/components/NetworkSummary"
 import { RegionCard } from "@/components/RegionCard"
 import { ViewTabs } from "@/components/ViewTabs"
-import type { Facility, FacilityData } from "@/server/types"
+import type { Facility } from "@/server/types"
 import { formatDistanceToNow } from "date-fns"
+import { getFacilityData } from "@/server/facility-data"
 
 // Revalidate every 5 minutes to match the data update frequency
 export const revalidate = 300
-
-async function getFacilityData(): Promise<FacilityData> {
-  const blobUrl = process.env.NEXT_PUBLIC_FACILITIES_BLOB_URL
-  if (!blobUrl) {
-    throw new Error(
-      "NEXT_PUBLIC_FACILITIES_BLOB_URL environment variable is not set",
-    )
-  }
-
-  const response = await fetch(blobUrl, { next: { revalidate: 300 } })
-  if (!response.ok) {
-    throw new Error(`Failed to fetch facility data: ${response.statusText}`)
-  }
-
-  return response.json()
-}
 
 export default async function Home() {
   const { facilities, lastUpdated, dataAsOf, dataDelayed, delayedNetworks } =
