@@ -50,11 +50,12 @@ export function Footer() {
             </a>
             <a
               href="https://github.com/nc9"
+              aria-label="Nik Cubrilovic on GitHub"
               target="_blank"
               rel="noopener noreferrer"
               className="text-neutral-400 hover:text-neutral-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-400"
             >
-              <Github className="h-5 w-5" />
+              <Github className="h-5 w-5" aria-hidden="true" />
             </a>
           </div>
         </div>

@@ -14,7 +14,7 @@ async function getFacilityData(): Promise<FacilityData> {
   const blobUrl = process.env.NEXT_PUBLIC_FACILITIES_BLOB_URL
   if (!blobUrl) {
     throw new Error(
-      "NEXT_PUBLIC_FACILITIES_BLOB_URL environment variable is not set"
+      "NEXT_PUBLIC_FACILITIES_BLOB_URL environment variable is not set",
     )
   }
 
@@ -35,7 +35,7 @@ export default async function Home() {
   const delayedSet = new Set(
     blobStale || (dataDelayed === true && !delayedNetworks)
       ? ["NEM", "WEM"]
-      : (delayedNetworks ?? [])
+      : (delayedNetworks ?? []),
   )
   const isRegionDelayed = (region: string) =>
     delayedSet.has(networkOfRegion(region))
@@ -54,66 +54,71 @@ export default async function Home() {
 
   // Sort regions according to our custom order
   const sortedRegions = Array.from(facilitiesByRegion.entries()).sort(
-    (a, b) => regionOrder.indexOf(a[0]) - regionOrder.indexOf(b[0])
+    (a, b) => regionOrder.indexOf(a[0]) - regionOrder.indexOf(b[0]),
   )
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-black text-neutral-200">
-      {/* Hero section with image */}
-      <div className="relative h-[60vh] min-h-[500px] w-full will-change-transform">
-        <div className="absolute inset-0">
-          <Image
-            src="/splash.jpg"
-            alt="Coal power station"
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover object-center"
-          />
+      <main id="main">
+        {/* Hero section with image */}
+        <div className="relative h-[60vh] min-h-[500px] w-full will-change-transform">
+          <div className="absolute inset-0">
+            <Image
+              src="/splash.jpg"
+              alt="Coal power station"
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover object-center"
+            />
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/80 to-black will-change-transform" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <h1 className="text-center font-bebas text-7xl font-normal uppercase tracking-wide text-neutral-100 will-change-transform">
+              Coal Watch Australia
+            </h1>
+          </div>
         </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/80 to-black will-change-transform" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <h1 className="text-center font-bebas text-7xl font-normal uppercase tracking-wide text-neutral-100 will-change-transform">
-            Coal Watch Australia
-          </h1>
-        </div>
-      </div>
 
-      {/* Main content */}
-      <div className="relative bg-black">
-        <div className="mx-auto max-w-[1400px] px-3 py-12 sm:px-8">
-          <ViewTabs />
-          <div className="mb-12 text-center text-sm text-neutral-400 will-change-transform">
-            Last updated{" "}
-            {formatDistanceToNow(new Date(lastUpdated), {
-              addSuffix: true,
-            })}
-          </div>
-          <NetworkSummary facilities={facilities} isDelayed={isRegionDelayed} />
-          {delayed && (
-            <div
-              role="status"
-              className="mx-auto mb-12 max-w-2xl rounded-xl border border-amber-800 bg-amber-950/60 px-5 py-4 text-center text-sm text-amber-200"
-            >
-              Data delayed{delayedLabel}. Showing last known readings
-              {dataAsOf
-                ? ` from ${formatDistanceToNow(new Date(dataAsOf), { addSuffix: true })}`
-                : ""}
-              . This is a data feed delay, not a grid outage.
+        {/* Main content */}
+        <div className="relative bg-black">
+          <div className="mx-auto max-w-[1400px] px-3 py-12 sm:px-8">
+            <ViewTabs />
+            <div className="mb-12 text-center text-sm text-neutral-400 will-change-transform">
+              Last updated{" "}
+              {formatDistanceToNow(new Date(lastUpdated), {
+                addSuffix: true,
+              })}
             </div>
-          )}
-          <div className="space-y-16">
-            {sortedRegions.map(([region, facilities]) => (
-              <RegionCard
-                key={region}
-                region={region}
-                facilities={facilities}
-                dataDelayed={isRegionDelayed(region)}
-              />
-            ))}
+            <NetworkSummary
+              facilities={facilities}
+              isDelayed={isRegionDelayed}
+            />
+            {delayed && (
+              <div
+                role="status"
+                className="mx-auto mb-12 max-w-2xl rounded-xl border border-amber-800 bg-amber-950/60 px-5 py-4 text-center text-sm text-amber-200"
+              >
+                Data delayed{delayedLabel}. Showing last known readings
+                {dataAsOf
+                  ? ` from ${formatDistanceToNow(new Date(dataAsOf), { addSuffix: true })}`
+                  : ""}
+                . This is a data feed delay, not a grid outage.
+              </div>
+            )}
+            <div className="space-y-16">
+              {sortedRegions.map(([region, facilities]) => (
+                <RegionCard
+                  key={region}
+                  region={region}
+                  facilities={facilities}
+                  dataDelayed={isRegionDelayed(region)}
+                />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      </main>
       <Footer />
     </div>
   )
