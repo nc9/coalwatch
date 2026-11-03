@@ -6,6 +6,31 @@ import { StatusRegionCard } from "@/components/StatusRegionCard"
 import type { Facility, FacilityData, StatusData } from "@/server/types"
 import { formatDistanceToNow } from "date-fns"
 
+import type { Metadata } from "next"
+
+const HISTORY_TITLE = "Coal Unit History: Recent Output by Station | Coal Watch"
+const HISTORY_DESCRIPTION =
+  "Recent history of every coal-fired unit on Australia's NEM and WEM grids, showing whether each unit was generating, by station and region."
+
+export const metadata: Metadata = {
+  title: HISTORY_TITLE,
+  description: HISTORY_DESCRIPTION,
+  alternates: { canonical: "/history" },
+  openGraph: {
+    type: "website",
+    url: "/history",
+    siteName: "Coal Watch Australia",
+    title: HISTORY_TITLE,
+    description: HISTORY_DESCRIPTION,
+    locale: "en_AU",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: HISTORY_TITLE,
+    description: HISTORY_DESCRIPTION,
+  },
+}
+
 // Revalidate every 5 minutes to match the data update frequency
 export const revalidate = 300
 
@@ -13,7 +38,7 @@ async function getFacilityData(): Promise<FacilityData> {
   const blobUrl = process.env.NEXT_PUBLIC_FACILITIES_BLOB_URL
   if (!blobUrl) {
     throw new Error(
-      "NEXT_PUBLIC_FACILITIES_BLOB_URL environment variable is not set"
+      "NEXT_PUBLIC_FACILITIES_BLOB_URL environment variable is not set",
     )
   }
 
@@ -76,53 +101,55 @@ export default async function StatusPage() {
 
   // Sort regions according to our custom order
   const sortedRegions = Array.from(facilitiesByRegion.entries()).sort(
-    (a, b) => regionOrder.indexOf(a[0]) - regionOrder.indexOf(b[0])
+    (a, b) => regionOrder.indexOf(a[0]) - regionOrder.indexOf(b[0]),
   )
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-black text-neutral-200">
-      {/* Hero section with image */}
-      <div className="relative h-[60vh] min-h-[500px] w-full will-change-transform">
-        <div className="absolute inset-0">
-          <Image
-            src="/splash.jpg"
-            alt="Coal power station"
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover object-center"
-          />
+      <main id="main">
+        {/* Hero section with image */}
+        <div className="relative h-[60vh] min-h-[500px] w-full will-change-transform">
+          <div className="absolute inset-0">
+            <Image
+              src="/splash.jpg"
+              alt="Coal power station"
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover object-center"
+            />
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/80 to-black will-change-transform" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <h1 className="text-center font-bebas text-7xl font-normal uppercase tracking-wide text-neutral-100 will-change-transform">
+              Coal Watch Australia
+            </h1>
+          </div>
         </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/80 to-black will-change-transform" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <h1 className="text-center font-bebas text-7xl font-normal uppercase tracking-wide text-neutral-100 will-change-transform">
-            Coal Watch Australia
-          </h1>
-        </div>
-      </div>
 
-      {/* Main content */}
-      <div className="relative bg-black">
-        <div className="mx-auto max-w-[1400px] px-6 py-12 sm:px-8">
-          <ViewTabs />
-          <div className="mb-12 text-center text-sm text-neutral-400 will-change-transform">
-            Last updated{" "}
-            {formatDistanceToNow(new Date(lastUpdated), {
-              addSuffix: true,
-            })}
-          </div>
-          <div className="space-y-16">
-            {sortedRegions.map(([region, facilities]) => (
-              <StatusRegionCard
-                key={region}
-                region={region}
-                facilities={facilities}
-                statusData={statusData.status}
-              />
-            ))}
+        {/* Main content */}
+        <div className="relative bg-black">
+          <div className="mx-auto max-w-[1400px] px-6 py-12 sm:px-8">
+            <ViewTabs />
+            <div className="mb-12 text-center text-sm text-neutral-400 will-change-transform">
+              Last updated{" "}
+              {formatDistanceToNow(new Date(lastUpdated), {
+                addSuffix: true,
+              })}
+            </div>
+            <div className="space-y-16">
+              {sortedRegions.map(([region, facilities]) => (
+                <StatusRegionCard
+                  key={region}
+                  region={region}
+                  facilities={facilities}
+                  statusData={statusData.status}
+                />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      </main>
       <Footer />
     </div>
   )

@@ -9,10 +9,29 @@ const bebas = Bebas_Neue({
   variable: "--font-bebas",
 })
 
+const SITE_URL = "https://coalwatch.com.au"
+const SITE_NAME = "Coal Watch Australia"
+const DESCRIPTION =
+  "Live output of every coal-fired power unit on Australia's NEM and WEM grids, by station and region, with data from OpenElectricity."
+
 export const metadata: Metadata = {
-  title: "Coal Watch",
-  description:
-    "Coal Watch: Observe the current status of Coal Fired Power Stations in Australia",
+  metadataBase: new URL(SITE_URL),
+  title: "Coal Watch Australia: Live Coal Power Station Output",
+  description: DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: "/",
+    siteName: SITE_NAME,
+    title: "Coal Watch Australia: Live Coal Power Station Output",
+    description: DESCRIPTION,
+    locale: "en_AU",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Coal Watch Australia: Live Coal Power Station Output",
+    description: DESCRIPTION,
+  },
 }
 
 export default function RootLayout({
@@ -23,7 +42,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>Coal Watch Australia</title>
         <link
           rel="apple-touch-icon"
           sizes="180x180"
@@ -38,7 +56,15 @@ export default function RootLayout({
         <link rel="icon" type="image/png" />
         <link rel="manifest" href="/site.webmanifest"></link>
       </head>
-      <body className={`${inter.className} ${bebas.variable}`}>{children}</body>
+      <body className={`${inter.className} ${bebas.variable}`}>
+        <a
+          href="#main"
+          className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:left-3 focus-visible:top-3 focus-visible:z-50 focus-visible:rounded focus-visible:bg-neutral-100 focus-visible:px-3 focus-visible:py-2 focus-visible:text-sm focus-visible:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-400"
+        >
+          Skip to content
+        </a>
+        {children}
+      </body>
     </html>
   )
 }
