@@ -21,7 +21,10 @@ interface LiveStats {
 // Any doubt (fetch error, delayed feed, stale data) returns null: static design
 async function getLiveStats(): Promise<LiveStats | null> {
   try {
-    const data = await getFacilityData()
+    const data = // no-store: the Next data cache served an hour-old blob here on prod while
+      // the page was fresh; the response is CDN-cached 5m and the blob URL is
+      // itself CDN-fronted, so this adds no meaningful upstream load
+      await getFacilityData({ noDataCache: true })
     const updated = new Date(data.lastUpdated).getTime()
     if (!Number.isFinite(updated) || Date.now() - updated > STALE_MS)
       return null
