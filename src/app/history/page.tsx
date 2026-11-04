@@ -23,9 +23,15 @@ export const metadata: Metadata = {
     title: HISTORY_TITLE,
     description: HISTORY_DESCRIPTION,
     locale: "en_AU",
+    images: [
+      { url: "/og", width: 1200, height: 630, alt: "Coal Watch Australia" },
+    ],
   },
   twitter: {
     card: "summary_large_image",
+    images: [
+      { url: "/og", width: 1200, height: 630, alt: "Coal Watch Australia" },
+    ],
     title: HISTORY_TITLE,
     description: HISTORY_DESCRIPTION,
   },

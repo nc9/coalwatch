@@ -26,9 +26,15 @@ export const metadata: Metadata = {
     title: "Coal Watch Australia: Live Coal Power Station Output",
     description: DESCRIPTION,
     locale: "en_AU",
+    images: [
+      { url: "/og", width: 1200, height: 630, alt: "Coal Watch Australia" },
+    ],
   },
   twitter: {
     card: "summary_large_image",
+    images: [
+      { url: "/og", width: 1200, height: 630, alt: "Coal Watch Australia" },
+    ],
     title: "Coal Watch Australia: Live Coal Power Station Output",
     description: DESCRIPTION,
   },

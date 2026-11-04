@@ -1,10 +1,11 @@
 import { ImageResponse } from "next/og"
 import { getFacilityData } from "@/server/facility-data"
 
-export const alt = "Coal Watch Australia"
-export const size = { width: 1200, height: 630 }
-export const contentType = "image/png"
-export const revalidate = 300
+// File-convention og images are served immutable for a year; a route handler
+// lets us control Cache-Control so the live numbers refresh
+export const dynamic = "force-dynamic"
+
+const size = { width: 1200, height: 630 }
 
 const HAIRLINE = "rgba(255,255,255,0.1)"
 const MUTED = "#a3a3a3"
@@ -56,10 +57,10 @@ async function getLiveStats(): Promise<LiveStats | null> {
   }
 }
 
-export default async function OpengraphImage() {
+export async function GET() {
   const stats = await getLiveStats()
 
-  return new ImageResponse(
+  const image = new ImageResponse(
     (
       <div
         style={{
@@ -175,4 +176,10 @@ export default async function OpengraphImage() {
     ),
     size
   )
+  return new Response(image.body, {
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+    },
+  })
 }
