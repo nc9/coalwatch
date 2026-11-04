@@ -1,0 +1,20 @@
+[project]
+domains = ["coalwatch.com.au"]
+
+# hobby project: contact via GitHub profile, no policy/E-E-A-T pages, no edge headers
+[rules]
+enable = [ "*" ]
+disable = [
+  "eeat/*",
+  "legal/privacy-policy",
+  "security/csp",
+  "security/security-txt",
+  "security/x-frame-options",
+  "ax/*",
+  "content/word-count",
+  "content/keyword-stuffing",
+  "perf/bad-caching",
+  "perf/total-byte-weight",
+  "perf/critical-request-chains",
+  "crawl/html-size",
+]
